@@ -42,19 +42,22 @@ public class CDRRecord {
     @Column(nullable = false, length = 10)
     private String lac;
 
-    @Column(nullable = false, length = 20)
+    @Column(name = "bts_id", nullable = false, length = 20)
     private String btsId;
 
-    @Column(length = 20)
+    @Column(name = "previous_bts_id", length = 20)
     private String previousBtsId;
 
-    @Column(nullable = false)
+    @Column(name = "timestamp_arrival", nullable = false)
     private LocalDateTime timestampArrival;
 
+    @Column(name = "timestamp_departure")
     private LocalDateTime timestampDeparture;
 
+    @Column(name = "user_location_x")
     private BigDecimal userLocationX;
 
+    @Column(name = "user_location_y")
     private BigDecimal userLocationY;
 
     // TODO: Calculate these fields in service layer
@@ -62,7 +65,7 @@ public class CDRRecord {
     private BigDecimal speed;
     private Integer duration; // in seconds
 
-    @Column(updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
     @PrePersist

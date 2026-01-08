@@ -7,6 +7,6 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class CentralBackendApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(CentralBackendApplication.java, args);
+        SpringApplication.run(CentralBackendApplication.class, args);
     }
 }
