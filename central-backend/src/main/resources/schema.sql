@@ -16,11 +16,12 @@ CREATE TABLE IF NOT EXISTS cdr_records (
     distance DECIMAL(10, 2),
     speed DECIMAL(10, 2),
     duration INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_imei (imei),
-    INDEX idx_bts_id (bts_id),
-    INDEX idx_timestamp (timestamp_arrival)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_cdr_imei ON cdr_records(imei);
+CREATE INDEX IF NOT EXISTS idx_cdr_bts_id ON cdr_records(bts_id);
+CREATE INDEX IF NOT EXISTS idx_cdr_timestamp ON cdr_records(timestamp_arrival);
 
 -- Alerts Table (for anomaly detection)
 CREATE TABLE IF NOT EXISTS alerts (
@@ -32,11 +33,12 @@ CREATE TABLE IF NOT EXISTS alerts (
     description TEXT,
     detected_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP,
-    metadata JSONB,
-    INDEX idx_alert_type (alert_type),
-    INDEX idx_severity (severity),
-    INDEX idx_detected_at (detected_at)
+    metadata JSONB
 );
+
+CREATE INDEX IF NOT EXISTS idx_alert_type ON alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_alert_severity ON alerts(severity);
+CREATE INDEX IF NOT EXISTS idx_alert_detected_at ON alerts(detected_at);
 
 -- User Activity Table (tracking active users)
 CREATE TABLE IF NOT EXISTS user_activity (
@@ -49,10 +51,11 @@ CREATE TABLE IF NOT EXISTS user_activity (
     total_distance DECIMAL(12, 2) DEFAULT 0,
     average_speed DECIMAL(10, 2) DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_imei_activity (imei),
-    INDEX idx_current_bts (current_bts_id)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_user_activity_imei ON user_activity(imei);
+CREATE INDEX IF NOT EXISTS idx_user_activity_bts ON user_activity(current_bts_id);
 
 -- BTS Registry Table
 CREATE TABLE IF NOT EXISTS bts_registry (
@@ -65,10 +68,11 @@ CREATE TABLE IF NOT EXISTS bts_registry (
     max_capacity INTEGER DEFAULT 1000,
     current_load INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_bts_id_registry (bts_id),
-    INDEX idx_lac (lac)
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_bts_registry_bts_id ON bts_registry(bts_id);
+CREATE INDEX IF NOT EXISTS idx_bts_registry_lac ON bts_registry(lac);
 
 -- Audit Log Table
 CREATE TABLE IF NOT EXISTS audit_log (
@@ -81,10 +85,11 @@ CREATE TABLE IF NOT EXISTS audit_log (
     response_data JSONB,
     status_code INTEGER,
     ip_address VARCHAR(45),
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_event_type (event_type),
-    INDEX idx_timestamp_audit (timestamp)
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE INDEX IF NOT EXISTS idx_audit_event_type ON audit_log(event_type);
+CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp);
 
 -- Comments explaining key fields:
 COMMENT ON TABLE cdr_records IS 'Call Detail Records - stores user transitions between BTS stations';
