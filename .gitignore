@@ -1,0 +1,81 @@
+# Environment variables
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Java / Maven / Gradle
+target/
+*.jar
+*.war
+*.ear
+*.class
+.gradle/
+build/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+*.egg
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Docker
+*.log
+
+# Database
+*.db
+*.sqlite
+
+# Security - IMPORTANT: Never commit real secrets!
+security/keys/*.key
+security/certs/*.pem
+security/certs/*.crt
+!security/keys/.gitkeep
+!security/certs/.gitkeep
+
+# Logs and temporary files
+logs/
+*.log
+security/audit/*.log
+
+# Models and data
+analytics/models/*.pkl
+analytics/models/*.h5
+*.csv
+*.json.backup
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
