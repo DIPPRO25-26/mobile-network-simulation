@@ -1,0 +1,98 @@
+#root {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 40px 18px 64px;
+}
+
+main {
+  display: grid;
+  gap: 18px;
+}
+
+header.app-header {
+  margin-bottom: 16px;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05));
+  box-shadow: var(--shadow);
+}
+
+header.app-header p {
+  margin-top: 6px;
+}
+
+form {
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+form h2 {
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+form > * + * {
+  margin-top: 12px;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+
+input[type="number"] {
+  max-width: 220px;
+}
+
+form button {
+  justify-self: start;
+}
+
+.status {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted);
+}
+
+.status.error {
+  border-color: rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.08);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 720px) {
+  #root {
+    padding: 26px 14px 44px;
+  }
+
+  form {
+    padding: 14px;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  input[type="number"] {
+    max-width: 100%;
+  }
+}

@@ -132,27 +132,27 @@ services:
       - mobile-network
 
   # Analytics Service
-  analytics:
-    build:
-      context: ./analytics
-      dockerfile: Dockerfile
-    container_name: analytics
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: mobile_network
-      DB_USER: ${DB_USER:-admin}
-      DB_PASSWORD: ${DB_PASSWORD:-admin123}
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    depends_on:
-      - postgres
-      - redis
-    networks:
-      - mobile-network
-    volumes:
-      - ./analytics/models:/app/models
-      - ./analytics/notebooks:/app/notebooks
+  # analytics:
+  #   build:
+  #     context: ./analytics
+  #     dockerfile: Dockerfile
+  #   container_name: analytics
+  #   environment:
+  #     DB_HOST: postgres
+  #     DB_PORT: 5432
+  #     DB_NAME: mobile_network
+  #     DB_USER: ${DB_USER:-admin}
+  #     DB_PASSWORD: ${DB_PASSWORD:-admin123}
+  #     REDIS_HOST: redis
+  #     REDIS_PORT: 6379
+  #   depends_on:
+  #     - postgres
+  #     - redis
+  #   networks:
+  #     - mobile-network
+  #   volumes:
+  #     - ./analytics/models:/app/models
+  #     - ./analytics/notebooks:/app/notebooks
 
   # Grafana
   grafana:
@@ -182,8 +182,9 @@ services:
     environment:
       BTS_ENDPOINTS: http://bts-1:8080,http://bts-2:8080,http://bts-3:8080
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
+      FRONTEND_URL: http://localhost:5001 # CORS reasons
     ports:
-      - "5000:5000"
+      - "5002:5000"
     depends_on:
       - bts-1
       - bts-2
@@ -196,11 +197,11 @@ services:
     build:
       context: ./simulator/frontend
       dockerfile: Dockerfile
+      args:
+        VITE_BACKEND_URL: http://localhost:5002
     container_name: simulator-frontend
-    environment:
-      REACT_APP_BACKEND_URL: http://localhost:5000
     ports:
-      - "3001:3000"
+      - "5001:80"
     depends_on:
       - simulator-backend
     networks:
