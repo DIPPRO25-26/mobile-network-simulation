@@ -7,6 +7,8 @@ from datetime import datetime
 import random
 
 bts_id = os.environ["BTS_ID"]
+lac = os.environ["BTS_LAC"]
+bts_port = os.environ["BTS_PORT"]
 pos_x, pos_y = os.environ["BTS_LOC_X"], os.environ["BTS_LOC_Y"]
 
 
@@ -22,9 +24,9 @@ def main():
 
     while True:
         msg = json.dumps({"time": datetime.now().isoformat(),
-                          "bts_id": bts_id,
+                          "bts_id": bts_id, "lac": lac,
                           "bts_location": {"x": pos_x, "y": pos_y},
-                          "ip": ip})
+                          "connect": {"ip": ip, "port": bts_port}})
         print(f'sending {msg}', file=sys.stderr)
         msg = msg.encode()
         sock = socket.socket(
