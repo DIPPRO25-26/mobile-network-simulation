@@ -1,0 +1,38 @@
+services:
+  send1:
+    build: ./send
+    container_name: sender1
+    init: true
+    environment:
+        BTS_ID: BTS001
+        BTS_LOC_X: 0
+        BTS_LOC_Y: 0
+    networks:
+      - testnet
+  send2:
+    build: ./send
+    container_name: sender2
+    environment:
+        BTS_ID: BTS002
+        BTS_LOC_X: 12
+        BTS_LOC_Y: -5
+    init: true
+    networks:
+      - testnet
+  recv1:
+    build: ./recv
+    container_name: reciever1
+    init: true
+    networks:
+      - testnet
+  recv2:
+    build: ./recv
+    container_name: reciever2
+    init: true
+    networks:
+      - testnet
+
+
+networks:
+  testnet:
+    driver: bridge
