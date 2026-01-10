@@ -22,6 +22,7 @@ import json
 import os
 from datetime import datetime
 import logging
+from .broadcaster import Broadcaster
 
 # Configuration from environment variables
 BTS_ID = os.getenv("BTS_ID", "BTS001")
@@ -40,6 +41,24 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(title=f"BTS Service - {BTS_ID}")
+
+# Initialize Broadcaster
+broadcaster = Broadcaster()
+
+@app.on_event("startup")
+def startup_event():
+    """Start background tasks on application startup"""
+    logger.info(f"Starting BTS Service {BTS_ID}")
+
+    # Start broadcaster thread
+    broadcaster.start()
+    logger.info("Broadcaster started")
+
+@app.on_event("shutdown")
+def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info(f"Shutting down BTS Service {BTS_ID}")
+    broadcaster.stop()
 
 # Initialize Redis client
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
