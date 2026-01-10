@@ -15,6 +15,9 @@ FROM eclipse-temurin:17-jre
 
 WORKDIR /app
 
+# Install curl for docker-compose healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Copy JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
 

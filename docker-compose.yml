@@ -17,7 +17,7 @@ services:
     networks:
       - mobile-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d mobile_network"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -51,6 +51,11 @@ services:
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/actuator/health > /dev/null"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
       postgres:
         condition: service_healthy
@@ -73,6 +78,12 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 100
       BTS_LOCATION_Y: 100
+      BTS_MAX_USER_CAPACITY: 100
+      BTS_HANDOVER_THRESHOLD: 150
+      POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL: 5
+      USER_KEEP_ALIVE_INTERVAL: 3
+      STATUS_SENDER_INTERVAL: 5
+      USER_PRESENCE_CHECKER_INTERVAL: 4
       CENTRAL_API_URL: http://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -80,8 +91,10 @@ services:
     ports:
       - "8081:8080"
     depends_on:
-      - central-backend
-      - redis
+      central-backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - mobile-network
 
@@ -96,6 +109,12 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 300
       BTS_LOCATION_Y: 100
+      BTS_MAX_USER_CAPACITY: 100
+      BTS_HANDOVER_THRESHOLD: 150
+      POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL: 5
+      USER_KEEP_ALIVE_INTERVAL: 3
+      STATUS_SENDER_INTERVAL: 5
+      USER_PRESENCE_CHECKER_INTERVAL: 4
       CENTRAL_API_URL: http://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -103,8 +122,10 @@ services:
     ports:
       - "8082:8080"
     depends_on:
-      - central-backend
-      - redis
+      central-backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - mobile-network
 
@@ -119,6 +140,12 @@ services:
       BTS_LAC: "1002"
       BTS_LOCATION_X: 200
       BTS_LOCATION_Y: 300
+      BTS_MAX_USER_CAPACITY: 100
+      BTS_HANDOVER_THRESHOLD: 150
+      POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL: 5
+      USER_KEEP_ALIVE_INTERVAL: 3
+      STATUS_SENDER_INTERVAL: 5
+      USER_PRESENCE_CHECKER_INTERVAL: 4
       CENTRAL_API_URL: http://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
@@ -126,8 +153,10 @@ services:
     ports:
       - "8083:8080"
     depends_on:
-      - central-backend
-      - redis
+      central-backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - mobile-network
 
