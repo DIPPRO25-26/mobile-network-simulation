@@ -1,5 +1,5 @@
 from datetime import datetime
-from services.simulate_first_layer import gen_imei, connect
+from comms.api import gen_imei, connect
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from constants import X_MAX, X_MIN, Y_MAX, Y_MIN
 import random

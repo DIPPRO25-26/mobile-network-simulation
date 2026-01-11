@@ -2,12 +2,13 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from services.generate import generate
 from services.replay import replay
-from services.simulate_first_layer import connect
+from comms.api import connect
 import os
 
 app = Flask(__name__)
 
-CORS(app, origins=[os.environ["FRONTEND_URL"]])
+CORS(app, origins=[os.environ.get(
+    "FRONTEND_URL", default="http://localhost:5002")])
 
 
 @app.route('/')
