@@ -2,6 +2,7 @@ package fer.project.central.controller;
 
 import fer.project.central.model.CDRRecord;
 import fer.project.central.service.CDRService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -19,6 +20,10 @@ public class CDRController {
 
     private final CDRService cdrService;
 
+    @Operation(
+            summary = "Get all CDR records",
+            description = "Retrieves a paginated list of all Call Detail Records with optional sorting"
+    )
     @GetMapping
     public Page<CDRRecord> getAllCDRRecords(
             @RequestParam(defaultValue = "0") int page,
@@ -29,6 +34,10 @@ public class CDRController {
         return cdrService.getAllRecords(pageable);
     }
 
+    @Operation(
+            summary = "Get CDR records by IMEI",
+            description = "Retrieves paginated CDR records filtered by International Mobile Equipment Identity"
+    )
     @GetMapping("/imei/{imei}")
     public Page<CDRRecord> getByImei(
             @PathVariable String imei,
@@ -40,6 +49,10 @@ public class CDRController {
         return cdrService.getByImei(imei, pageable);
     }
 
+    @Operation(
+            summary = "Get CDR records by BTS ID",
+            description = "Retrieves paginated CDR records filtered by Base Transceiver Station identifier"
+    )
     @GetMapping("/bts/{btsId}")
     public Page<CDRRecord> getByBtsId(
             @PathVariable String btsId,
@@ -51,6 +64,10 @@ public class CDRController {
         return cdrService.getByBtsId(btsId, pageable);
     }
 
+    @Operation(
+            summary = "Get CDR records by time range",
+            description = "Retrieves paginated CDR records within a specified time range"
+    )
     @GetMapping("/time-range")
     public Page<CDRRecord> getByTimeRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
