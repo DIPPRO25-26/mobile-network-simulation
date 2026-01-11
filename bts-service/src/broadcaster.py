@@ -9,6 +9,7 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 class Broadcaster:
     def __init__(self):
         self.broadcast_address = '255.255.255.255'
@@ -17,9 +18,12 @@ class Broadcaster:
         self.lac = os.getenv('BTS_LAC', '1001')
         self.location_x = float(os.getenv('BTS_LOCATION_X', 100))
         self.location_y = float(os.getenv('BTS_LOCATION_Y', 100))
-        self.host = os.getenv('BTS_HOST', 'localhost')
         self.port = int(os.getenv('BTS_PORT', 8080))
         self.broadcast_interval = 3
+
+        interfaces = socket.getaddrinfo(
+            host=socket.gethostname(), port=None, family=socket.AF_INET)
+        self.host = interfaces[0][-1][0]
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
@@ -44,13 +48,14 @@ class Broadcaster:
         """Continuously send beacon messages."""
         while self.running:
             try:
+                x, y = self.location_x, self.location_y
                 beacon = {
                     'time': datetime.now().isoformat(),
                     'bts_id': self.bts_id,
                     'lac': self.lac,
                     'bts_location': {
-                        'x': self.location_x,
-                        'y': self.location_y
+                        'x': x,
+                        'y': y
                     },
                     'connect': {
                         'ip': self.host,
@@ -59,9 +64,9 @@ class Broadcaster:
                 }
 
                 message = json.dumps(beacon).encode('utf-8')
-                self.sock.sendto(message, (self.broadcast_address, self.broadcast_port))
-
-                logger.info(f"Beacon sent: {self.bts_id} @ ({self.location_x}, {self.location_y})")
+                self.sock.sendto(
+                    message, (self.broadcast_address, self.broadcast_port))
+                logger.info(f"Beacon sent: {self.bts_id} @ ({x}, {y})")
 
             except Exception as e:
                 logger.error(f"Failed to send beacon: {e}")
