@@ -1,27 +1,19 @@
 package fer.project.central.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import fer.project.central.model.UserEventRequest;
 import fer.project.central.model.UserEventResponse;
 import fer.project.central.service.UserService;
-import jakarta.validation.Valid;
+import fer.project.central.controller.util.HmacValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Validator;
+import jakarta.validation.ConstraintViolation;
+import java.util.Set;
 
-/**
- * REST Controller for user events from BTS
- * 
- * MVP Implementation - basic POST endpoint only
- * 
- * TODO for team:
- * - Add HMAC validation interceptor/filter
- * - Add rate limiting
- * - Add request/response logging
- * - Implement error handling with @ControllerAdvice
- * - Add API versioning
- * - Add Swagger/OpenAPI documentation
- */
 @RestController
 @RequestMapping("/api/v1/user")
 @RequiredArgsConstructor
@@ -29,39 +21,38 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final HmacValidator hmacValidator;
+    private final ObjectMapper objectMapper;
+    private final Validator validator;
 
-    /**
-     * POST /api/v1/user
-     * Receives user event from BTS
-     * 
-     * TODO:
-     * - Add @PreAuthorize for security
-     * - Validate HMAC signature (check X-HMAC-Signature header)
-     * - Validate timestamp (check X-Timestamp header)
-     */
     @PostMapping
     public ResponseEntity<UserEventResponse> processUserEvent(
-            @Valid @RequestBody UserEventRequest request,
-            @RequestHeader(value = "X-HMAC-Signature", required = false) String hmacSignature,
-            @RequestHeader(value = "X-Timestamp", required = false) String timestamp) {
-        
-        log.info("Received user event from BTS: {} for IMEI: {}", request.getBtsId(), request.getImei());
+            @RequestBody String rawBody,
+            @RequestHeader(value = "X-HMAC-Signature", required = true) String hmacSignature,
+            @RequestHeader(value = "X-Timestamp", required = true) String timestamp) {
 
-        // TODO: Validate HMAC signature
-        // if (!hmacValidator.validate(request, hmacSignature, timestamp)) {
-        //     return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        // }
+        if (!hmacValidator.validate(rawBody, timestamp, hmacSignature)) {
+            log.warn("Invalid HMAC signature");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UserEventRequest request;
+        try {
+            request = objectMapper.readValue(rawBody, UserEventRequest.class);
+        } catch (Exception e) {
+            log.error("Failed to parse request body", e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        Set<ConstraintViolation<UserEventRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            log.warn("Validation failed: {}", violations);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        }
+
+        log.info("Received user event from BTS: {} for IMEI: {}", request.getBtsId(), request.getImei());
 
         UserEventResponse response = userService.processUserEvent(request);
         return ResponseEntity.ok(response);
-    }
-
-    /**
-     * GET /api/v1/user/health
-     * Simple health check endpoint
-     */
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Central Backend is running");
     }
 }

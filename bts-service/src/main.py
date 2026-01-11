@@ -1,16 +1,7 @@
 """
 BTS Service - Base Transceiver Station Simulation
 
-MVP Implementation using FastAPI and Redis
-
-TODO for team:
-- Implement HMAC signing for requests to Central
-- Add handover logic based on distance/signal strength
-- Implement local analytics (speed calculation, transition count)
-- Add proper error handling and retry logic
-- Implement health checks
-- Add metrics/monitoring
-- Optimize Redis caching strategy
+MVP Implementation using FastAPI and Redis with HMAC authentication
 """
 
 from fastapi import FastAPI, HTTPException, Header
@@ -22,7 +13,11 @@ import json
 import os
 from datetime import datetime
 import logging
+import hmac
+import hashlib
+import base64
 from .broadcaster import Broadcaster
+from .observers.redis_cache import RedisCache
 
 # Configuration from environment variables
 BTS_ID = os.getenv("BTS_ID", "BTS001")
@@ -34,6 +29,7 @@ REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 MCC = os.getenv("MCC", "219")  # Croatia
 MNC = os.getenv("MNC", "01")
+HMAC_SECRET = os.getenv("HMAC_SECRET_KEY", "your_shared_secret_key_here")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -45,10 +41,21 @@ app = FastAPI(title=f"BTS Service - {BTS_ID}")
 # Initialize Broadcaster
 broadcaster = Broadcaster()
 
+# Initialize Redis client
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+observers = []
+redis_cache = None
+
 @app.on_event("startup")
 def startup_event():
     """Start background tasks on application startup"""
     logger.info(f"Starting BTS Service {BTS_ID}")
+
+    # Initialize Redis observer
+    global redis_cache
+    redis_cache = RedisCache(redis_client=redis_client, ttl=300)
+    observers.append(redis_cache)
 
     # Start broadcaster thread
     broadcaster.start()
@@ -59,9 +66,6 @@ def shutdown_event():
     """Cleanup on shutdown"""
     logger.info(f"Shutting down BTS Service {BTS_ID}")
     broadcaster.stop()
-
-# Initialize Redis client
-redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 # Models
 class UserLocation(BaseModel):
@@ -78,6 +82,17 @@ class ConnectResponse(BaseModel):
     data: dict
 
 # Helper functions
+def generate_hmac_signature(secret: str, body: str, timestamp: str) -> str:
+    """Generate HMAC-SHA256 signature for request"""
+    message = body + timestamp  # Match Java backend
+    signature = hmac.new(
+        secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).digest()
+    return signature.hex()
+
+
 def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
     """Calculate Euclidean distance between two points"""
     return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
@@ -85,7 +100,7 @@ def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
 def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
     """
     Determine if handover is needed
-    
+
     TODO for team:
     - Implement more sophisticated handover logic
     - Consider signal strength simulation
@@ -96,49 +111,47 @@ def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
         BTS_LOCATION_X, BTS_LOCATION_Y,
         user_location.x, user_location.y
     )
-    
+
     # Simple distance-based handover (threshold: 150 units)
     MAX_DISTANCE = 150.0
     if distance > MAX_DISTANCE:
         # TODO: Find nearest BTS instead of hardcoding
         return True, None  # Return None for now, implement BTS discovery
-    
+
     return False, None
-
-def cache_user_activity(imei: str, data: dict):
-    """
-    Cache user activity in Redis
-    
-    TODO for team:
-    - Implement TTL strategy
-    - Add bulk operations for performance
-    - Implement cache invalidation logic
-    """
-    key = f"bts:{BTS_ID}:user:{imei}"
-    redis_client.setex(key, 300, json.dumps(data))  # 5 min TTL
-
-def get_cached_user(imei: str) -> Optional[dict]:
-    """Get cached user data"""
-    key = f"bts:{BTS_ID}:user:{imei}"
-    data = redis_client.get(key)
-    return json.loads(data) if data else None
 
 async def send_to_central(data: dict) -> dict:
     """
-    Send user event to Central Backend
-    
-    TODO for team:
-    - Add HMAC signing (X-HMAC-Signature header)
-    - Add timestamp header (X-Timestamp)
-    - Implement retry logic with exponential backoff
-    - Add circuit breaker pattern
-    - Handle timeouts properly
+    Send user event to Central Backend with HMAC signature
+
+    X-Timestamp sprječava replay attacks - stare zahtjeve ne mogu biti ponovno poslani
     """
     url = f"{CENTRAL_API_URL}/api/v1/user"
-    
+
+    # Generate timestamp (ISO 8601 format)
+    timestamp = datetime.now().isoformat()
+
+    # Serialize body to JSON string (consistent formatting)
+    body_str = json.dumps(data, separators=(',', ':'), sort_keys=True)
+
+    # Generate HMAC signature
+    signature = generate_hmac_signature(HMAC_SECRET, body_str, timestamp)
+
+    # Prepare headers
+    headers = {
+        "X-HMAC-Signature": signature,
+        "X-Timestamp": timestamp,
+        "Content-Type": "application/json"
+    }
+
     async with httpx.AsyncClient() as client:
         try:
-            response = await client.post(url, json=data, timeout=5.0)
+            response = await client.post(
+                url,
+                content=body_str.encode('utf-8'),  # Send as bytes
+                headers=headers,
+                timeout=5.0
+            )
             response.raise_for_status()
             return response.json()
         except httpx.HTTPError as e:
@@ -150,13 +163,13 @@ async def send_to_central(data: dict) -> dict:
 async def connect_user(request: ConnectRequest):
     """
     Handle user connection to BTS
-    
+
     MVP Implementation:
     1. Receive user data from simulator
     2. Cache user activity in Redis
-    3. Send data to Central Backend
+    3. Send data to Central Backend with HMAC signature
     4. Return response (with handover suggestion if needed)
-    
+
     TODO for team:
     - Validate IMEI format
     - Implement rate limiting per IMEI
@@ -164,10 +177,10 @@ async def connect_user(request: ConnectRequest):
     - Calculate user speed locally
     """
     logger.info(f"User {request.imei} connecting to {BTS_ID}")
-    
+
     # Check for handover need
     needs_handover, target_bts = should_handover(request.user_location)
-    
+
     # Prepare data for Central Backend
     central_data = {
         "imei": request.imei,
@@ -181,18 +194,20 @@ async def connect_user(request: ConnectRequest):
             "y": request.user_location.y
         }
     }
-    
-    # Send to Central Backend
+
+    # Send to Central Backend with HMAC signature
     central_response = await send_to_central(central_data)
-    
-    # Cache user activity
-    cache_data = {
-        "last_seen": datetime.now().isoformat(),
-        "location": {"x": request.user_location.x, "y": request.user_location.y},
-        "bts_id": BTS_ID
-    }
-    cache_user_activity(request.imei, cache_data)
-    
+
+    notify_observers(event="user_connected", data={
+        "imei": request.imei,
+        "location": {
+            "x": request.user_location.x,
+            "y": request.user_location.y
+        },
+        "bts_id": BTS_ID,
+        "timestamp": request.timestamp
+    })
+
     # Build response
     response_data = {
         "bts_id": BTS_ID,
@@ -200,11 +215,16 @@ async def connect_user(request: ConnectRequest):
         "target_bts_id": target_bts if needs_handover else None,
         "message": "Connected successfully"
     }
-    
+
     if needs_handover:
         logger.warning(f"Handover suggested for {request.imei}")
-    
+
     return ConnectResponse(status="success", data=response_data)
+
+def notify_observers(event: str, data: dict):
+    """Notify all observers of an event"""
+    for observer in observers:
+        observer.update(event=event, data=data)
 
 @app.get("/health")
 async def health_check():
