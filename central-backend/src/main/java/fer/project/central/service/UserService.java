@@ -42,17 +42,23 @@ public class UserService {
         log.debug("Processing user event for IMEI: {}, BTS: {}", request.getImei(), request.getBtsId());
 
         // Find previous location
-        Optional<CDRRecord> previousRecord = cdrRepository
+        Optional<CDRRecord> previousRecordOpt = cdrRepository
                 .findFirstByImeiOrderByTimestampArrivalDesc(request.getImei());
 
         // Create new CDR record
-        CDRRecord cdrRecord = createCDRRecord(request, previousRecord.orElse(null));
+        CDRRecord cdrRecord = createCDRRecord(request, previousRecordOpt.orElse(null));
         CDRRecord savedRecord = cdrRepository.save(cdrRecord);
+
+        // Update previous record's departure time
+        previousRecordOpt.ifPresent(prev -> {
+            prev.setTimestampDeparture(request.getTimestamp());
+            cdrRepository.save(prev);
+        });
 
         log.info("Created CDR record ID: {} for IMEI: {}", savedRecord.getId(), request.getImei());
 
         // Build response with previous location
-        UserEventResponse.PreviousLocation previousLocation = previousRecord
+        UserEventResponse.PreviousLocation previousLocation = previousRecordOpt
                 .map(record -> new UserEventResponse.PreviousLocation(
                         record.getBtsId(),
                         record.getLac(),
