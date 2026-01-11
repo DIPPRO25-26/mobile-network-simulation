@@ -175,7 +175,7 @@ async def connect_user(request: ConnectRequest):
         "mnc": MNC,
         "lac": BTS_LAC,
         "btsId": BTS_ID,
-        "timestamp": request.timestamp,
+        "timestamp": datetime.now().isoformat(),
         "userLocation": {
             "x": request.user_location.x,
             "y": request.user_location.y
