@@ -65,7 +65,6 @@ security/audit/*.log
 # Models and data
 analytics/models/*.pkl
 analytics/models/*.h5
-*.csv
 *.json.backup
 
 # Build artifacts
