@@ -1,6 +1,8 @@
 package fer.project.central.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,24 +21,31 @@ public class BTS {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank(message = "BTS ID is required")
     @Column(name = "bts_id", nullable = false, length = 20)
     private String btsId;
 
+    @NotBlank(message = "LAC is required")
     @Column(nullable = false, length = 10)
     private String lac;
 
+    @NotNull(message = "Location X is required")
     @Column(name = "location_x", nullable = false)
     private BigDecimal locationX;
 
+    @NotNull(message = "Location Y is required")
     @Column(name = "location_y", nullable = false)
     private BigDecimal locationY;
 
+    @NotBlank(message = "Status is required")
     @Column(name = "status", length = 20)
     private String status;
 
+    @NotNull(message = "Max capacity is required")
     @Column(name = "max_capacity")
     private Integer maxCapacity;
 
+    @NotNull(message = "Current load is required")
     @Column(name = "current_load")
     private Integer currentLoad;
 
