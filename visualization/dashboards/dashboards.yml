@@ -1,0 +1,9 @@
+apiVersion: 1
+
+providers:
+  - name: "mobile-network-dashboards"
+    orgId: 1
+    folder: ""
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards
