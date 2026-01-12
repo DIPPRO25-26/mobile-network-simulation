@@ -16,7 +16,7 @@ def calc_luhn(i):
             total += (x*2) // 10 + (x*2) % 10
         else:
             total += x
-    return 10 - total % 10
+    return (10 - total) % 10
 
 
 # http://tacdb.osmocom.org/
@@ -69,6 +69,18 @@ def connect(x, y, imei, timestamp):
     d = r.post(url, json=json)
     d = d.json()
     print(d, file=sys.stderr)
+    if d.get('status') != "success":
+        print("Error response from bts")
+        return
+    if d["data"]["action"] == "handover":
+        # use target bts if provided, or closest bts that isnt current.
+        # this creates a loop if both closest bts-es want us to handover,
+        # but dont provide targets
+        target = d["data"]["target_bts_id"] or \
+                   closest_bts(x, y, {k:v for k,v in bts_map.items() if k != last})
+        print(f"handover requested from bts, next request will be towards {target}", file=sys.stderr)
+        last_bts[imei] = target
+
 
 
 if __name__ == "__main__":
