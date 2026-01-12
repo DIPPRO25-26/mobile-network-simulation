@@ -23,6 +23,17 @@ public class BTSService {
         return btsRepository.findByBtsId(btsId);
     }
 
+    public BTS registerBTS(BTS bts) {
+        if (btsRepository.findByBtsId(bts.getBtsId()).isPresent()) {
+            throw new RuntimeException("BTS with ID " + bts.getBtsId() + " already exists!");
+        }
+
+        bts.setCreatedAt(LocalDateTime.now());
+        bts.setUpdatedAt(LocalDateTime.now());
+
+        return btsRepository.save(bts);
+    }
+
     public BTS updateBTSStatus(String btsId, String newStatus) {
         BTS bts = getBTSByBtsId(btsId)
                 .orElseThrow(() -> new RuntimeException("BTS not found with btsId: " + btsId));

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -60,6 +61,37 @@ public class BTSController {
         return btsService.getBTSByBtsId(btsId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @Operation(
+            summary = "Register new BTS",
+            description = "Creates a new Base Transceiver Station"
+    )
+    @ApiResponses(value = {
+            @ApiResponse(
+                    responseCode = "201",
+                    description = "Successfully created BTS",
+                    content = @Content(schema = @Schema(implementation = BTS.class))
+            ),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid request - BTS already exists",
+                    content = @Content
+            )
+    })
+    @PostMapping
+    public ResponseEntity<?> registerBTS(
+            @io.swagger.v3.oas.annotations.parameters.RequestBody(
+                    description = "BTS registration payload",
+                    required = true,
+                    content = @Content(
+                            schema = @Schema(implementation = BTS.class)
+                    )
+            )
+            @Valid @RequestBody BTS bts
+    ) {
+        BTS createdBts = btsService.registerBTS(bts);
+        return ResponseEntity.status(201).body(createdBts);
     }
 
     @Operation(
