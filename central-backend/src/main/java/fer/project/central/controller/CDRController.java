@@ -3,12 +3,15 @@ package fer.project.central.controller;
 import fer.project.central.model.CDRRecord;
 import fer.project.central.service.CDRService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -16,7 +19,10 @@ import java.time.LocalDateTime;
 @RestController
 @RequestMapping("/api/v1/cdr")
 @RequiredArgsConstructor
+@Validated
 public class CDRController {
+
+    private static final int MAX_PAGE_SIZE = 100;
 
     private final CDRService cdrService;
 
@@ -26,8 +32,8 @@ public class CDRController {
     )
     @GetMapping
     public Page<CDRRecord> getAllCDRRecords(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size,
             @RequestParam(defaultValue = "timestampArrival,desc") String[] sort
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(parseSortParams(sort)));
@@ -41,8 +47,8 @@ public class CDRController {
     @GetMapping("/imei/{imei}")
     public Page<CDRRecord> getByImei(
             @PathVariable String imei,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size,
             @RequestParam(defaultValue = "timestampArrival,desc") String[] sort
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(parseSortParams(sort)));
@@ -56,8 +62,8 @@ public class CDRController {
     @GetMapping("/bts/{btsId}")
     public Page<CDRRecord> getByBtsId(
             @PathVariable String btsId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size,
             @RequestParam(defaultValue = "timestampArrival,desc") String[] sort
     ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(parseSortParams(sort)));
@@ -72,8 +78,8 @@ public class CDRController {
     public Page<CDRRecord> getByTimeRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size,
             @RequestParam(defaultValue = "timestampArrival,desc") String[] sort
             ) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(parseSortParams(sort)));
