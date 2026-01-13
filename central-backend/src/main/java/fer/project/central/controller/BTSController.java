@@ -75,7 +75,12 @@ public class BTSController {
             ),
             @ApiResponse(
                     responseCode = "400",
-                    description = "Invalid request - BTS already exists",
+                    description = "Invalid request - validation failed (missing/invalid fields)",
+                    content = @Content
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "Conflict - BTS already exists",
                     content = @Content
             )
     })
@@ -116,7 +121,7 @@ public class BTSController {
             )
     })
     @PatchMapping("/{btsId}/status")
-    public ResponseEntity<BTS> updateBTSStatus(
+    public ResponseEntity<?> updateBTSStatus(
             @Parameter(description = "BTS identifier", required = true)
             @PathVariable String btsId,
             @io.swagger.v3.oas.annotations.parameters.RequestBody(
@@ -128,15 +133,12 @@ public class BTSController {
             )
             @RequestBody Map<String, String> statusUpdate
             ) {
-        try {
-            String status = statusUpdate.get("status");
-            if (status == null) {
-                return ResponseEntity.badRequest().build();
-            }
-            BTS updatedBts = btsService.updateBTSStatus(btsId, status);
-            return ResponseEntity.ok(updatedBts);
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
+        String status = statusUpdate.get("status");
+        if (status == null || status.trim().isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Status field must be specified and cannot be empty"));
         }
+        BTS updatedBts = btsService.updateBTSStatus(btsId, status);
+        return ResponseEntity.ok(updatedBts);
     }
 }

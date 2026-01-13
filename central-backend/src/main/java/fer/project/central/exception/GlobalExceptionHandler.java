@@ -31,11 +31,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<Map<String, String>> handleRuntimeException(
-            RuntimeException exception
+    @ExceptionHandler(BtsNotFoundException.class)
+    public ResponseEntity<Map<String, String>> handleBtsNotFoundException(
+            BtsNotFoundException exception
     ) {
-        return ResponseEntity.badRequest()
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("error", exception.getMessage()));
+    }
+
+    @ExceptionHandler(DuplicateBtsException.class)
+    public ResponseEntity<Map<String, String>> handleDuplicateBtsException(
+            DuplicateBtsException exception
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("error", exception.getMessage()));
     }
 }
