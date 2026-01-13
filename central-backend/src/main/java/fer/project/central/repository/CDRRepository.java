@@ -34,7 +34,6 @@ public interface CDRRepository extends JpaRepository<CDRRecord, Long> {
 
     /**
      * Find all CDR records for a specific IMEI
-     * TODO: Add pagination
      */
     Page<CDRRecord> findByImei(String imei, Pageable pageable);
 
@@ -50,7 +49,7 @@ public interface CDRRepository extends JpaRepository<CDRRecord, Long> {
      */
     @Query("SELECT c FROM CDRRecord c WHERE c.timestampArrival BETWEEN :start AND :end")
     Page<CDRRecord> findByTimeRange(@Param("start") LocalDateTime start,
-                                     @Param("end") LocalDateTime end,
+                                    @Param("end") LocalDateTime end,
                                     Pageable pageable);
 
     // TODO: Add more custom queries as needed:
