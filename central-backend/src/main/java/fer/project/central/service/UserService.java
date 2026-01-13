@@ -45,15 +45,15 @@ public class UserService {
         Optional<CDRRecord> previousRecordOpt = cdrRepository
                 .findFirstByImeiOrderByTimestampArrivalDesc(request.getImei());
 
-        // Create new CDR record
-        CDRRecord cdrRecord = createCDRRecord(request, previousRecordOpt.orElse(null));
-        CDRRecord savedRecord = cdrRepository.save(cdrRecord);
-
         // Update previous record's departure time
         previousRecordOpt.ifPresent(prev -> {
             prev.setTimestampDeparture(request.getTimestamp());
             cdrRepository.save(prev);
         });
+
+        // Create new CDR record
+        CDRRecord cdrRecord = createCDRRecord(request, previousRecordOpt.orElse(null));
+        CDRRecord savedRecord = cdrRepository.save(cdrRecord);
 
         log.info("Created CDR record ID: {} for IMEI: {}", savedRecord.getId(), request.getImei());
 
