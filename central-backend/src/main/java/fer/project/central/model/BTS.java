@@ -1,6 +1,7 @@
 package fer.project.central.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -42,10 +43,12 @@ public class BTS {
     private String status;
 
     @NotNull(message = "Max capacity is required")
+    @Min(value = 0, message = "Max capacity must be non-negative")
     @Column(name = "max_capacity")
     private Integer maxCapacity;
 
     @NotNull(message = "Current load is required")
+    @Min(value = 0, message = "Current load must be non-negative")
     @Column(name = "current_load")
     private Integer currentLoad;
 
