@@ -23,7 +23,7 @@ public class BTS {
     private Long id;
 
     @NotBlank(message = "BTS ID is required")
-    @Column(name = "bts_id", nullable = false, length = 20)
+    @Column(name = "bts_id", nullable = false, length = 20, unique = true)
     private String btsId;
 
     @NotBlank(message = "LAC is required")
