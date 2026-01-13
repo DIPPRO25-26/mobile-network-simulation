@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.util.Optional;
 
 /**
@@ -18,8 +20,6 @@ import java.util.Optional;
  * MVP Implementation - basic functionality
  * 
  * TODO for team:
- * - Implement distance calculation between BTS locations
- * - Implement speed calculation
  * - Add Redis caching for recent user locations
  * - Add async processing for high load scenarios
  * - Implement batch processing for multiple events
@@ -42,17 +42,23 @@ public class UserService {
         log.debug("Processing user event for IMEI: {}, BTS: {}", request.getImei(), request.getBtsId());
 
         // Find previous location
-        Optional<CDRRecord> previousRecord = cdrRepository
+        Optional<CDRRecord> previousRecordOpt = cdrRepository
                 .findFirstByImeiOrderByTimestampArrivalDesc(request.getImei());
 
+        // Update previous record's departure time
+        previousRecordOpt.ifPresent(prev -> {
+            prev.setTimestampDeparture(request.getTimestamp());
+            cdrRepository.save(prev);
+        });
+
         // Create new CDR record
-        CDRRecord cdrRecord = createCDRRecord(request, previousRecord.orElse(null));
+        CDRRecord cdrRecord = createCDRRecord(request, previousRecordOpt.orElse(null));
         CDRRecord savedRecord = cdrRepository.save(cdrRecord);
 
         log.info("Created CDR record ID: {} for IMEI: {}", savedRecord.getId(), request.getImei());
 
         // Build response with previous location
-        UserEventResponse.PreviousLocation previousLocation = previousRecord
+        UserEventResponse.PreviousLocation previousLocation = previousRecordOpt
                 .map(record -> new UserEventResponse.PreviousLocation(
                         record.getBtsId(),
                         record.getLac(),
@@ -65,7 +71,6 @@ public class UserService {
 
     /**
      * Create CDR record from request
-     * TODO: Calculate distance and speed
      */
     private CDRRecord createCDRRecord(UserEventRequest request, CDRRecord previousRecord) {
         CDRRecord record = new CDRRecord();
@@ -85,34 +90,51 @@ public class UserService {
         if (previousRecord != null) {
             record.setPreviousBtsId(previousRecord.getBtsId());
             
-            // TODO: Calculate distance between previous and current location
-            // record.setDistance(calculateDistance(previousRecord, record));
+            // Calculate distance between previous and current location
+            BigDecimal distance = calculateDistance(previousRecord, record);
+            record.setDistance(distance);
             
-            // TODO: Calculate speed based on distance and time difference
-            // record.setSpeed(calculateSpeed(previousRecord, record));
+            // Calculate duration at previous BTS (in seconds)
+            Integer duration = calculateDuration(previousRecord, record);
+            record.setDuration(duration);
             
-            // TODO: Calculate duration at previous BTS
-            // record.setDuration(calculateDuration(previousRecord, record));
+            // Calculate speed based on distance and time difference
+            record.setSpeed(calculateSpeed(distance, duration));
         }
 
         return record;
     }
 
-    // TODO: Implement these utility methods
-    /*
     private BigDecimal calculateDistance(CDRRecord previous, CDRRecord current) {
-        // Use Euclidean distance or haversine formula
-        return BigDecimal.ZERO;
+        if (previous.getUserLocationX() == null || previous.getUserLocationY() == null ||
+            current.getUserLocationX() == null || current.getUserLocationY() == null) {
+            return BigDecimal.ZERO;
+        }
+
+        // Euclidean distance
+        double x1 = previous.getUserLocationX().doubleValue();
+        double y1 = previous.getUserLocationY().doubleValue();
+        double x2 = current.getUserLocationX().doubleValue();
+        double y2 = current.getUserLocationY().doubleValue();
+
+        double distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+        return BigDecimal.valueOf(distance).setScale(4, RoundingMode.HALF_UP);
     }
 
-    private BigDecimal calculateSpeed(CDRRecord previous, CDRRecord current) {
-        // speed = distance / time
-        return BigDecimal.ZERO;
+    private BigDecimal calculateSpeed(BigDecimal distance, Integer durationInSeconds) {
+        if (durationInSeconds == null || durationInSeconds <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return distance.divide(BigDecimal.valueOf(durationInSeconds), 4, RoundingMode.HALF_UP);
     }
 
     private Integer calculateDuration(CDRRecord previous, CDRRecord current) {
-        // duration in seconds between timestamps
-        return 0;
+        if (previous.getTimestampArrival() == null || current.getTimestampArrival() == null) {
+            return 0;
+        }
+
+        long seconds = Duration.between(previous.getTimestampArrival(), previous.getTimestampDeparture()).getSeconds();
+        return (int) seconds;
     }
-    */
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import fer.project.central.model.UserEventRequest;
 import fer.project.central.model.UserEventResponse;
 import fer.project.central.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import fer.project.central.controller.util.HmacValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,6 +26,10 @@ public class UserController {
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
+    @Operation(
+            summary = "Process user event from BTS",
+            description = "Receives information about user presence from Base Transceiver Station."
+    )
     @PostMapping
     public ResponseEntity<UserEventResponse> processUserEvent(
             @RequestBody String rawBody,

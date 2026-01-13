@@ -58,9 +58,7 @@ public class BTSController {
             @Parameter(description = "BTS identifier", required = true)
             @PathVariable String btsId
     ) {
-        return btsService.getBTSByBtsId(btsId)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return ResponseEntity.ok(btsService.getBTSByBtsId(btsId));
     }
 
     @Operation(

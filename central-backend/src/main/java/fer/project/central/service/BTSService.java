@@ -21,8 +21,9 @@ public class BTSService {
         return btsRepository.findAll();
     }
 
-    public Optional<BTS> getBTSByBtsId(String btsId) {
-        return btsRepository.findByBtsId(btsId);
+    public BTS getBTSByBtsId(String btsId) {
+        return btsRepository.findByBtsId(btsId)
+                .orElseThrow(() -> new BtsNotFoundException(btsId));
     }
 
     public BTS registerBTS(BTS bts) {
@@ -37,8 +38,7 @@ public class BTSService {
     }
 
     public BTS updateBTSStatus(String btsId, String newStatus) {
-        BTS bts = getBTSByBtsId(btsId)
-                .orElseThrow(() -> new BtsNotFoundException(btsId));
+        BTS bts = getBTSByBtsId(btsId);
 
         if (!bts.getStatus().equals(newStatus)) {
             bts.setStatus(newStatus);
