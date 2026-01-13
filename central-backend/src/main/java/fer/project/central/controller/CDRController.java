@@ -82,6 +82,10 @@ public class CDRController {
             @RequestParam(defaultValue = "20") @Min(1) @Max(MAX_PAGE_SIZE) int size,
             @RequestParam(defaultValue = "timestampArrival,desc") String[] sort
             ) {
+        if (start.isAfter(end)) {
+            throw new IllegalArgumentException("Start time must be before end time");
+        }
+
         Pageable pageable = PageRequest.of(page, size, Sort.by(parseSortParams(sort)));
         return cdrService.getByTimeRange(start, end, pageable);
     }
