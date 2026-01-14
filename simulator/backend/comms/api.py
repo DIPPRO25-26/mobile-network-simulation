@@ -5,7 +5,7 @@ import time
 from hashlib import sha256
 import requests as r
 from comms.bts_discovery import scan_bts, closest_bts
-
+from comms.hmac import create_hmac_headers
 
 def calc_luhn(i):
     s = [*map(int, i)]
@@ -64,9 +64,10 @@ def connect(x, y, imei, timestamp):
 
     json = {"imei": imei, "timestamp": timestamp,
             "user_location": {"x": x, "y": y}}
+    headers = create_hmac_headers(json)
     conn = bts_map[last]["connect"]
     url = f"http://{conn['ip']}:{conn['port']}/api/v1/connect"
-    d = r.post(url, json=json)
+    d = r.post(url, json=json, headers=headers)
     d = d.json()
     print(d, file=sys.stderr)
     if d.get('status') != "success":
