@@ -255,7 +255,7 @@ def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
         user_location.x, user_location.y
     )
 
-    if distance > BTS_HANGOVER_DISTANCE_THRESHOLD:
+    if distance < BTS_HANGOVER_DISTANCE_THRESHOLD:
         return False, None
 
     known_bts = bts_information_redis_cache.get_all()
