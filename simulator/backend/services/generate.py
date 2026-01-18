@@ -10,46 +10,37 @@ from aiostream import stream
 
 
 async def simulate_actions(imei, num_actions):
-    x = random.randint(X_MIN, X_MAX)
-    y = random.randint(Y_MIN, Y_MAX)
-    speed = random.random() * 30
+    x = float(random.randint(X_MIN, X_MAX))
+    y = float(random.randint(Y_MIN, Y_MAX))
+    
+    base_speed = random.uniform(5.0, 30.0)
 
     for _ in range(num_actions):
-        if random.random() < 0.3:  # chance to stay at same location
+        if random.random() < 0.15:
             pass
         else:
-            direction = random.choice(['up', 'down', 'left', 'right',
-                                       'diagonal_up_right', 'diagonal_up_left',
-                                       'diagonal_down_right', 'diagonal_down_left'])
-            # some more random jitter
-            move_amount = speed + random.random() * speed / 10
-            # make speed consistent
-            diag_move_amount = move_amount / math.sqrt(2)
-            move_amount, diag_move_amount = int(move_amount), int(diag_move_amount)
-            if direction == 'up':
-                y += move_amount
-            elif direction == 'down':
-                y -= move_amount
-            elif direction == 'left':
-                x -= move_amount
-            elif direction == 'right':
-                x += move_amount
-            elif direction == 'diagonal_up_right':
-                x += diag_move_amount
-                y += diag_move_amount
-            elif direction == 'diagonal_up_left':
-                x -= diag_move_amount
-                y += diag_move_amount
-            elif direction == 'diagonal_down_right':
-                x += diag_move_amount
-                y -= diag_move_amount
-            elif direction == 'diagonal_down_left':
-                x -= diag_move_amount
-                y -= diag_move_amount
+            while True:
+                angle = random.uniform(0, 2 * math.pi)
+                step_size = base_speed * random.uniform(0.75, 1.25)
+
+                new_x = x + step_size * math.cos(angle)
+                new_y = y + step_size * math.sin(angle)
+
+                if X_MIN <= new_x <= X_MAX and Y_MIN <= new_y <= Y_MAX:
+                    x = new_x
+                    y = new_y
+                    break
 
         timestamp = datetime.now()
-        response = await connect(timestamp, imei, x, y)
-        yield {"timestamp": timestamp, "imei": imei, "x": x, "y": y, "response": response}
+        
+        final_x, final_y = int(x), int(y)
+
+        response = await connect(timestamp, imei, final_x, final_y)
+        yield {
+            "timestamp": timestamp, "imei": imei, 
+            "x": final_x, "y": final_y, 
+            "response": response
+        }
         await asyncio.sleep(random.random() * 2)
 
 
