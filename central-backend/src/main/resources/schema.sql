@@ -179,18 +179,18 @@ CREATE TRIGGER trg_upsert_user_activity
 AFTER INSERT ON cdr_records
 FOR EACH ROW EXECUTE FUNCTION fn_upsert_user_activity();
 
+-- Sample Data Insertion (for testing purposes)
+-- INSERT INTO bts_registry (bts_id, lac, location_x, location_y, updated_at)
+-- VALUES ('BTS001','1001',0,0,now()),('BTS002','1001',12,-5,now()),('BTS003','1002',100,100,now())
+-- ON CONFLICT (bts_id) DO NOTHING;
 
-INSERT INTO bts_registry (bts_id, lac, location_x, location_y, updated_at)
-VALUES ('BTS001','1001',0,0,now()),('BTS002','1001',12,-5,now()),('BTS003','1002',100,100,now())
-ON CONFLICT (bts_id) DO NOTHING;
+-- INSERT INTO user_activity (imei, current_bts_id, current_lac, last_seen, connection_count, total_distance, average_speed)
+-- VALUES ('123456789012345','BTS001','1001',now(),3,120.0,12.5)
+-- ON CONFLICT (imei) DO UPDATE SET updated_at = NOW();
 
-INSERT INTO user_activity (imei, current_bts_id, current_lac, last_seen, connection_count, total_distance, average_speed)
-VALUES ('123456789012345','BTS001','1001',now(),3,120.0,12.5)
-ON CONFLICT (imei) DO UPDATE SET updated_at = NOW();
-
-INSERT INTO cdr_records (imei, mcc, mnc, lac, bts_id, previous_bts_id, timestamp_arrival, user_location_x, user_location_y, speed, distance)
-VALUES
-('123456789012345','219','01','1001','BTS001',NULL,now()-interval '10 minutes',0,0,10.0,30.0),
-('123456789012345','219','01','1001','BTS002','BTS001',now()-interval '5 minutes',12,-5,15.0,50.0),
-('987654321098765','219','01','1002','BTS003',NULL,now()-interval '3 minutes',100,100,0.0,0.0)
-ON CONFLICT DO NOTHING;
+-- INSERT INTO cdr_records (imei, mcc, mnc, lac, bts_id, previous_bts_id, timestamp_arrival, user_location_x, user_location_y, speed, distance)
+-- VALUES
+-- ('123456789012345','219','01','1001','BTS001',NULL,now()-interval '10 minutes',0,0,10.0,30.0),
+-- ('123456789012345','219','01','1001','BTS002','BTS001',now()-interval '5 minutes',12,-5,15.0,50.0),
+-- ('987654321098765','219','01','1002','BTS003',NULL,now()-interval '3 minutes',100,100,0.0,0.0)
+-- ON CONFLICT DO NOTHING;

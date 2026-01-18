@@ -10,7 +10,7 @@
       "id": 1,
       "gridPos": {"h":8,"w":12,"x":0,"y":0},
       "title": "Korisnici po BTS-u",
-      "type": "table",
+      "type": "timeseries",
       "datasource": "Prometheus",
       "targets": [
         { "expr": "mobile_users_by_bts", "legendFormat": "{{bts}}", "refId": "A" }
@@ -19,7 +19,7 @@
     {
       "id": 2,
       "gridPos": {"h":8,"w":12,"x":12,"y":0},
-      "title": "Nedavne upozorenja (posljednji timestamp)",
+      "title": "Nedavne upozorenja",
       "type": "table",
       "datasource": "Prometheus",
       "targets": [
@@ -50,7 +50,7 @@
         {
           "refId": "A",
           "format": "table",
-          "rawSql": "SELECT user_location_x AS x, user_location_y AS y, imei FROM cdr_records WHERE user_location_x IS NOT NULL AND user_location_y IS NOT NULL ORDER BY timestamp_arrival DESC LIMIT 1000;"
+          "rawSql": "SELECT user_location_x AS x, user_location_y AS y, imei AS User FROM cdr_records WHERE user_location_x IS NOT NULL AND user_location_y IS NOT NULL ORDER BY timestamp_arrival DESC LIMIT 1000;"
         }
       ],
       "options": {
@@ -61,9 +61,12 @@
             "yField": "y",
             "drawStyle": "points",
             "pointSize": 4,
-            "seriesBy": "imei"
+            "seriesBy": "User"
           }
-        ]
+        ],
+  "legend": {
+    "displayMode": "hidden"
+  }
       }
     }
   ]

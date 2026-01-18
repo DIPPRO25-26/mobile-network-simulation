@@ -176,7 +176,7 @@ services:
   # Mobile Network Exporter for Prometheus
   mobile-exporter:
     build:
-      context: ./analytics/src/metrics
+      context: ./analytics
       dockerfile: Dockerfile
     container_name: mobile-exporter
     environment:
