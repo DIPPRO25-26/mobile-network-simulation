@@ -5,12 +5,14 @@ from constants import X_MAX, X_MIN, Y_MAX, Y_MIN
 import random
 import time
 import asyncio
+import math
 from aiostream import stream
 
 
 async def simulate_actions(imei, num_actions):
     x = random.randint(X_MIN, X_MAX)
     y = random.randint(Y_MIN, Y_MAX)
+    speed = random.random() * 30
 
     for _ in range(num_actions):
         if random.random() < 0.3:  # chance to stay at same location
@@ -19,26 +21,30 @@ async def simulate_actions(imei, num_actions):
             direction = random.choice(['up', 'down', 'left', 'right',
                                        'diagonal_up_right', 'diagonal_up_left',
                                        'diagonal_down_right', 'diagonal_down_left'])
+            # some more random jitter
+            move_amount = speed + random.randint() * speed / 10
+            # make speed consistent
+            diag = 1 / math.sqrt(2)
             if direction == 'up':
-                y += 1
+                y += move_amount
             elif direction == 'down':
-                y -= 1
+                y -= move_amount
             elif direction == 'left':
-                x -= 1
+                x -= move_amount
             elif direction == 'right':
-                x += 1
+                x += move_amount
             elif direction == 'diagonal_up_right':
-                x += 1
-                y += 1
+                x += move_amount * diag
+                y += move_amount * diag
             elif direction == 'diagonal_up_left':
-                x -= 1
-                y += 1
+                x -= move_amount * diag
+                y += move_amount * diag
             elif direction == 'diagonal_down_right':
-                x += 1
-                y -= 1
+                x += move_amount * diag
+                y -= move_amount * diag
             elif direction == 'diagonal_down_left':
-                x -= 1
-                y -= 1
+                x -= move_amount * diag
+                y -= move_amount * diag
 
         timestamp = datetime.now()
         response = await connect(timestamp, imei, x, y)
