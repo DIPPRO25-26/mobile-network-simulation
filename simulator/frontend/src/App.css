@@ -116,9 +116,10 @@ form button {
   font-size: 1rem;
   color: #333;
 }
-.clear-btn {
+.clear-btn, .download-btn {
   padding: 2px 8px;
   font-size: 0.8rem;
+  color: #333;
 }
 .log-window {
   max-height: 400px;
