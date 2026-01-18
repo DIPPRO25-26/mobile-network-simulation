@@ -1,10 +1,15 @@
 import { useEffect, useRef } from "react";
 
 export default function LogFeed({ logs, clearLogs }) {
-  const endRef = useRef(null);
+  const feedRef = useRef(null);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (feedRef.current) {
+      feedRef.current.scrollTo({
+        top: feedRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    }
   }, [logs]);
 
   const downloadCSV = () => {
@@ -50,7 +55,7 @@ export default function LogFeed({ logs, clearLogs }) {
           <button onClick={clearLogs} className="clear-btn">Clear</button>
         </div>
       </div>
-      <div className="log-window">
+      <div className="log-window" ref={feedRef}>
         {logs.map((log, index) => {
           const isError = log.response?.error !== null;
           const statusClass = isError ? "error" : "success";
@@ -77,7 +82,6 @@ export default function LogFeed({ logs, clearLogs }) {
             </div>
           );
         })}
-        <div ref={endRef} />
       </div>
     </div>
   );

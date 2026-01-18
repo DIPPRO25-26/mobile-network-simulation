@@ -2,7 +2,7 @@ from quart import Quart, request, make_response, jsonify
 from quart_cors import cors
 from services.generate import generate
 from services.replay import replay
-from comms.api import connect
+from comms.api import connect, get_bts_map
 import os, csv, json
 from datetime import datetime
 from io import TextIOWrapper
@@ -68,3 +68,9 @@ async def connect_endpoint():
 
     response = await connect(timestamp, imei, x, y)
     return jsonify({"timestamp": timestamp.isoformat(), "imei": imei, "x": x, "y": y, "response": response})
+
+@app.route('/bts-locations', methods=['GET'])
+async def get_bts():
+    bts_map = get_bts_map()
+    locs = [{"bts_id": i["bts_id"], "x": i["bts_location"]["x"], "y": i["bts_location"]["y"]} for i in bts_map.values()]
+    return jsonify(locs)

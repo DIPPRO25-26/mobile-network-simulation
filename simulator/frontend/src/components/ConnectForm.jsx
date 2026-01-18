@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { connectManual } from "../components/simulatorApi.jsx";
 
-export default function ConnectForm({ onLog }) {
+export default function ConnectForm({ onLog, mapSelection }) {
   const getNow = () => new Date().toISOString();
 
   const [form, setForm] = useState({
@@ -10,6 +10,18 @@ export default function ConnectForm({ onLog }) {
     y: "",
     timestamp: getNow(),
   });
+
+  // Listen for map clicks
+  useEffect(() => {
+    if (mapSelection) {
+      setForm((prev) => ({
+        ...prev,
+        x: mapSelection.x,
+        y: mapSelection.y,
+        timestamp: getNow()
+      }));
+    }
+  }, [mapSelection]);
 
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState(null);
@@ -59,6 +71,7 @@ export default function ConnectForm({ onLog }) {
           placeholder="IMEI"
           value={form.imei}
           onChange={handleChange}
+          required
         />
 
         <input

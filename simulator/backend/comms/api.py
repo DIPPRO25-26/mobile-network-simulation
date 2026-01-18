@@ -40,6 +40,9 @@ bts_map = dict()
 bts_thread = Thread(target=scan_bts, args=(bts_map,), daemon=True)
 bts_thread.start()
 
+def get_bts_map():
+    return bts_map
+
 last_bts = dict()
 
 # switched to go-inspired errors

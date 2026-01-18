@@ -33,6 +33,12 @@ async function readStream(response, onData) {
   }
 }
 
+export async function getBtsLocations() {
+  const res = await fetch(`${BASE_URL}/bts-locations`);
+  if (!res.ok) throw new Error("Failed to fetch BTS locations");
+  return await res.json();
+}
+
 export async function generateSimulation(users, events, onData) {
   const res = await fetch(`${BASE_URL}/generate`, {
     method: "POST",
