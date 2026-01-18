@@ -36,16 +36,19 @@ def generate_alert(alert_type, severity, imei, bts_id, description):
     logger.debug(f"alert generated: {alert}")
     return alert
 
-# TODO: 
-# nemoj dodavati alert vise puta za istu pojavu flappinga (isti imei, isti BTS-ovi)
-# ostale provjere to izbjegnu jer nema preklapanja
-# flapping: korisnik se prebacuje izmedju 2 BTS-a >5 puta/h
-def check_flapping(cursor, column_names):
-    alerts = []
-    now_minus_1h = datetime.datetime.now() - datetime.timedelta(hours=1)
-    cursor.execute(flapping_query % now_minus_1h)    
+def fetch_data(cursor, query, time_cutoff):
+    cursor.execute(query % time_cutoff)
     data = cursor.fetchall()
+    return data
 
+def clear_old_flapping_alerts(recent_flapping):
+    now_minus_1h = datetime.datetime.now() - datetime.timedelta(hours=1)
+    culled_flapping_list = [x for x in recent_flapping if x["detected_at"] > now_minus_1h]
+    return culled_flapping_list
+
+# flapping: korisnik se prebacuje izmedju 2 BTS-a >5 puta/h
+def check_flapping(cursor, flapping_query, column_names, recent_flapping):
+    data = fetch_data(cursor, flapping_query, datetime.datetime.now() - datetime.timedelta(hours=1))
     # grupiraj entryje po imei-ma
     imei_grouped_entries = {}
     for row in data:
@@ -53,24 +56,11 @@ def check_flapping(cursor, column_names):
         bts_id = row[column_names.index('bts_id')]
         previous_bts_id = row[column_names.index('previous_bts_id')]
         if imei in imei_grouped_entries.keys():
-            imei_grouped_entries[imei].append((previous_bts_id, bts_id)) # UZMI SAMO BTS_ID
+            imei_grouped_entries[imei].append((previous_bts_id, bts_id))
         else:
             imei_grouped_entries[imei] = [(previous_bts_id, bts_id)]
-
-    # testni dict
-    # imei_grouped_entries = {'123456': [
-    #     ('BTS6', 'BTS5'), 
-    #     ('BTS5', 'BTS4'),
-    #     ('BTS4', 'BTS5'),
-    #     ('BTS5', 'BTS4'),
-    #     ('BTS4', 'BTS5'),
-    #     ('BTS5', 'BTS4'),
-    #     ('BTS4', 'BTS5'),
-    #     ('BTS5', 'BTS6'),
-    #     ('BTS6', 'BTS5'),
-    #     ('BTS5', 'BTS7'),
-    # ]}
     
+    new_flapping = []
     for imei in imei_grouped_entries:
         bts_pairs = imei_grouped_entries[imei] # bts_pairs je lista 2-tupleova
         num_transitions = len(bts_pairs)
@@ -89,89 +79,106 @@ def check_flapping(cursor, column_names):
                 else:
                     break
         
-        # za pronadjene lance duljine >5 generiraj alerte
+        # za pronadjene lance duljine >6 zabiljezi flapping [broj prijelaza = duljina lanca - 1]
         prev_chain_longer = 0
         for chain in bts_chains_list:
-            if len(chain) > 5:
+            if len(chain) > 6: 
                 if not prev_chain_longer:
-                    alerts.append(generate_alert('flapping', 'medium', imei, chain[0], 
-                                                 f"Flapping between {chain[0]} and {chain[1]} {len(chain)} times"))
+                    flap = (imei, chain)
+                    new_flapping.append(flap)
                 prev_chain_longer = 1
             else:
                 prev_chain_longer = 0
+
+    alerts = []
+    recent_flapping_info = [x["info"] for x in recent_flapping]
+    for flap in new_flapping:
+        if flap not in recent_flapping_info:
+            imei, chain = flap
+            alert = generate_alert(
+                'flapping', 'medium',
+                imei, chain[0],
+                f"Flapping between {chain[0]} and {chain[1]} {len(chain)-1} times"
+            )
+            recent_flapping.append({
+                "info": flap, 
+                "detected_at": datetime.datetime.now()
+            })
+            alerts.append(alert)
     return alerts
 
 # abnormal speed: >200km/h
-def check_abnormal_speed(cursor, column_names):
+def check_abnormal_speed(cursor, speed_query, column_names):
+    data = fetch_data(cursor, speed_query, datetime.datetime.now() - datetime.timedelta(seconds=POLL_INTERVAL))
     alerts = []
-    now_minus_poll_interval = datetime.datetime.now() - datetime.timedelta(seconds=POLL_INTERVAL)
-    cursor.execute(speed_query % now_minus_poll_interval)
-    data = cursor.fetchall()
     for row in data:
         imei = row[column_names.index('imei')]
         bts_id = row[column_names.index('bts_id')]
-        alerts.append(generate_alert('abnormal speed', 'medium', imei, bts_id, "Speed above 200km/h"))
+        alerts.append(generate_alert('abnormal speed', 'low', imei, bts_id, "Speed above 200km/h"))
     return alerts
 
 # overload: current load >50
-def check_overload(cursor, column_names):
+def check_overload(cursor, overload_query, column_names):
+    data = fetch_data(cursor, overload_query, datetime.datetime.now() - datetime.timedelta(seconds=POLL_INTERVAL))
     alerts = []
-    now_minus_poll_interval = datetime.datetime.now() - datetime.timedelta(seconds=POLL_INTERVAL)
-    cursor.execute(overload_query % now_minus_poll_interval)
-    data = cursor.fetchall()
     for row in data:
         bts_id = row[column_names.index('bts_id')]
-        alerts.append(generate_alert('overload', 'medium', None, bts_id, "Current load above 50"))
+        alerts.append(generate_alert('overload', 'high', None, bts_id, "Current load above 50"))
     return alerts
 
+def fetch_column_names(cursor, query, table_name):
+    cursor.execute(query % table_name)
+    data = cursor.fetchall()
+    cdr_records_col_names = list(sum(data, ())) # flattens data into 1d list
+    return cdr_records_col_names
+
+def open_db_connection(connection_params):
+    logger.info('Connecting to the PostgreSQL database...')
+    conn = psycopg2.connect(**connection_params)
+    cursor = conn.cursor()
+    return conn, cursor
+
+def close_db_connection(conn):
+    if conn is not None:
+        conn.close()
+        logger.info('Database connection closed.')
+
 def main():
+    conn = None
+    connection_params = {
+        "dbname": "mobile_network",
+        "user": DB_USER,
+        "password": DB_PASSWORD,
+        "host": "localhost",
+        "port": 5432
+    }
+    recent_flapping = []
     while True:
         try:
-            conn = None
-            connection_params = {
-                "dbname": "mobile_network",
-                "user": DB_USER,
-                "password": DB_PASSWORD,
-                "host": "localhost",
-                "port": 5432
-            }
+            starttime = time.monotonic()
+            conn, cur = open_db_connection(connection_params)
 
-            logger.info('Connecting to the PostgreSQL database...')
-            conn = psycopg2.connect(**connection_params)
-            cur = conn.cursor()
-
-            cur.execute(col_names_query % 'cdr_records')
-            data = cur.fetchall()
-            cdr_records_col_names = list(sum(data, ())) # flattens data into 1d list
-            cur.execute(col_names_query % 'bts_registry')
-            data = cur.fetchall()
-            bts_registry_col_names = list(sum(data, ())) # flattens data into 1d list
+            cdr_records_col_names = fetch_column_names(cur, col_names_query, 'cdr_records')
+            bts_registry_col_names = fetch_column_names(cur, col_names_query, 'bts_registry')
             
-            alerts = [] 
-            flapping_alerts = check_flapping(cur, cdr_records_col_names)
-            alerts += flapping_alerts
-            abnormal_speed_alerts = check_abnormal_speed(cur, cdr_records_col_names)
-            alerts += abnormal_speed_alerts
-            overload_alerts = check_overload(cur, bts_registry_col_names)
-            alerts += overload_alerts
+            recent_flapping = clear_old_flapping_alerts(recent_flapping)
+            flapping_alerts = check_flapping(cur, flapping_query, cdr_records_col_names, recent_flapping)
+            abnormal_speed_alerts = check_abnormal_speed(cur, speed_query, cdr_records_col_names)
+            overload_alerts = check_overload(cur, overload_query, bts_registry_col_names)
+
+            alerts = flapping_alerts + abnormal_speed_alerts + overload_alerts
             if alerts:
                 cur.executemany(alerts_insert, alerts)
                 conn.commit()
                 logger.info('Alerts table updated')
             
-            cur.close()
-            if conn is not None:
-                conn.close()
-                logger.info('Database connection closed.')
-            time.sleep(POLL_INTERVAL)
+            cur.close()        
+            close_db_connection(conn)  
+            time.sleep(POLL_INTERVAL - (time.monotonic() - starttime))
         except (Exception, psycopg2.DatabaseError) as error:
             print(error)
-        except KeyboardInterrupt as ki:
-            print(ki)
-            sys.exit(0)
-            
+            close_db_connection(conn) 
+            sys.exit(0) 
+
 if __name__ == '__main__':
     main()
-
-    
-
