@@ -1,13 +1,13 @@
 import os
 import sys
-from time import time
-import random
+import datetime
+import logging
 import csv
+import unittest
 
 # sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append("../")
-                
-from src.anomaly_detection.rules_based_anomaly_detector import *
+from src.anomaly_detection.rules_based_anomaly_detector import *                
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -65,6 +65,9 @@ SELECT * FROM test_cdr_records WHERE created_at >= '%s' AND speed > 200;
 test_overload_query = """
 SELECT * FROM test_bts_registry WHERE updated_at >= '%s' AND current_load > 50;
 """
+get_alerts_query = """
+SELECT * FROM alerts WHERE alert_type = '%s';
+"""
 
 def create_test_tables(cursor):
     cursor.execute(create_test_cdr_records_str)
@@ -118,9 +121,11 @@ def get_table_names(cursor):
     data = cursor.fetchall()
     return data
 
-def test_connect():
-    try:
-        conn = None
+class TestAnomalyDetection(unittest.TestCase):
+    conn = None
+
+    @classmethod
+    def setUpClass(cls):
         connection_params = {
             "dbname": "mobile_network",
             "user": DB_USER,
@@ -128,41 +133,74 @@ def test_connect():
             "host": "localhost",
             "port": 5432
         }
-        conn, cur = open_db_connection(connection_params)
-
-        create_test_tables(cur)
-        # print(get_table_names(cur))
+        cls.conn, cls.cur = open_db_connection(connection_params)
+        
+        create_test_tables(cls.cur)
+        #logger.debug(get_table_names(cls.cur))
                 
-        cdr_records_col_names = fetch_column_names(cur, col_names_query, 'test_cdr_records')
-        bts_registry_col_names = fetch_column_names(cur, col_names_query, 'test_bts_registry')
+        cls.cdr_records_col_names = fetch_column_names(cls.cur, col_names_query, 'test_cdr_records')
+        cls.bts_registry_col_names = fetch_column_names(cls.cur, col_names_query, 'test_bts_registry')
+        cls.alerts_col_names = fetch_column_names(cls.cur, col_names_query, 'alerts')
         
         test_cdr_records_header, test_cdr_records = read_dummy_data("./dummy_data/dummy_cdr_records.csv")
         test_bts_registry_header, test_bts_registry = read_dummy_data("./dummy_data/dummy_bts_registry.csv")
 
-        insert_test_data(test_bts_registry_header, test_bts_registry, cur, insert_into_bts_registry_str)
-        insert_test_data(test_cdr_records_header, test_cdr_records, cur, insert_into_cdr_records_str)
+        insert_test_data(test_bts_registry_header, test_bts_registry, cls.cur, insert_into_bts_registry_str)
+        insert_test_data(test_cdr_records_header, test_cdr_records, cls.cur, insert_into_cdr_records_str)
 
-        # trebao bih dobiti dva flapping alerta, imei 123455 i 123457
-        flapping_alerts = check_flapping(cur, test_flapping_query, cdr_records_col_names, [])
-        # 4 abnormal speed alerta, imei: 123458
-        abnormal_speed_alerts = check_abnormal_speed(cur, test_speed_query, cdr_records_col_names)
-        # overload alert, BTS3
-        overload_alerts = check_overload(cur, test_overload_query, bts_registry_col_names)
+        cls.cur.execute("TRUNCATE TABLE alerts;")
+ 
+    @classmethod
+    def tearDownClass(cls):
+        drop_test_tables(cls.cur)
+        cls.cur.close()
+        close_db_connection(cls.conn)
+    
+    def test_db_connection(self):
+        self.assertTrue(self.conn.closed == 0)
+    
+    def test_flapping_alerts(self):
+        flapping_alerts = check_flapping(self.cur, test_flapping_query, self.cdr_records_col_names, [])
+        self.cur.executemany(alerts_insert, flapping_alerts)
+        self.cur.execute(get_alerts_query % "flapping")
+        flapping_data_from_table = self.cur.fetchall()
 
-        # # TODO:
-        # # umjesto da samo printam alertove,
-        # # napravi pravi python test sa assert il tako nesto.
-        # # isto napravi neki assert da je spajanje na bazu uspjesno,
-        # # tipa neki assert fail ako program udje u except blok
+        # ocekujem 2 rezultata, IMEI 123455 i 123457
+        expected_results = [
+            {'imei': '123455',
+             'bts_id': 'BTS4',
+             'description': 'Flapping between BTS4 and BTS2 8 times'},
+            {'imei': '123457',
+             'bts_id': 'BTS2',
+             'description': 'Flapping between BTS2 and BTS3 6 times'}, 
+        ]
+        for flapping_alert, expected_result in zip(flapping_data_from_table, expected_results):
+            self.assertEqual(flapping_alert[self.alerts_col_names.index('imei')], expected_result["imei"])
+            self.assertEqual(flapping_alert[self.alerts_col_names.index('bts_id')], expected_result["bts_id"])
+            self.assertEqual(flapping_alert[self.alerts_col_names.index('description')], expected_result["description"])
 
-        alerts = flapping_alerts + abnormal_speed_alerts + overload_alerts
+    def test_speed_alerts(self):
+        abnormal_speed_alerts = check_abnormal_speed(self.cur, test_speed_query, self.cdr_records_col_names)
+        self.cur.executemany(alerts_insert, abnormal_speed_alerts)
+        self.cur.execute(get_alerts_query % "abnormal_speed")
+        speeding_from_table = self.cur.fetchall()
 
-        drop_test_tables(cur)
-        cur.close()
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        close_db_connection(conn)  
+        # ocekujem 4 rezultata, svi s IMEI-om 123458
+        expected_results = ['123458'] * 4
+        for speeding_alert, expected_result in zip(speeding_from_table, expected_results):
+            self.assertEqual(speeding_alert[self.alerts_col_names.index('imei')], expected_result)
+
+
+    def test_overload_alerts(self):
+        overload_alerts = check_overload(self.cur, test_overload_query, self.bts_registry_col_names)
+        self.cur.executemany(alerts_insert, overload_alerts)
+        self.cur.execute(get_alerts_query % "overload")
+        overload_from_table = self.cur.fetchall()
+        overload_alert = overload_from_table[0]
+
+        #ocekujem 1 rezultat, bts_id=BTS3
+        expected_result = 'BTS3'
+        self.assertEqual(overload_alert[self.alerts_col_names.index('bts_id')], expected_result)
 
 if __name__=="__main__":
-    test_connect()
+    unittest.main(verbosity=2)
