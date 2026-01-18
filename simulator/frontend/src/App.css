@@ -96,3 +96,78 @@ form button {
     max-width: 100%;
   }
 }
+
+.log-feed-container {
+  margin-top: 2rem;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.log-header {
+  background: #f4f4f4;
+  padding: 0.5rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #ddd;
+}
+.log-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: #333;
+}
+.clear-btn {
+  padding: 2px 8px;
+  font-size: 0.8rem;
+}
+.log-window {
+  max-height: 400px;
+  overflow-y: auto;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.9rem;
+  text-align: left;
+}
+.log-entry {
+  margin-bottom: 8px;
+  border-bottom: 1px solid #333;
+  padding-bottom: 4px;
+}
+.timestamp {
+  color: #569cd6;
+  margin-right: 8px;
+}
+.imei {
+  color: #b5cea8;
+  font-weight: bold;
+}
+.coords {
+  color: #ce9178;
+}
+.status-tag {
+  margin-left: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.status-tag.success {
+  background: #3e6b40;
+  color: #e0e0e0;
+  border: 1px solid #5b8c5d;
+}
+.status-tag.error {
+  background: #853b3b;
+  color: #e0e0e0;
+  border: 1px solid #b56056;
+}
+.detail {
+  color: #9cdcfe;
+  margin-top: 2px;
+  margin-left: 20px;
+  font-size: 0.85rem;
+}
+ 
