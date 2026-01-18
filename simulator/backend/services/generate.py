@@ -22,9 +22,10 @@ async def simulate_actions(imei, num_actions):
                                        'diagonal_up_right', 'diagonal_up_left',
                                        'diagonal_down_right', 'diagonal_down_left'])
             # some more random jitter
-            move_amount = speed + random.randint() * speed / 10
+            move_amount = speed + random.random() * speed / 10
             # make speed consistent
-            diag = 1 / math.sqrt(2)
+            diag_move_amount = move_amount / math.sqrt(2)
+            move_amount, diag_move_amount = int(move_amount), int(diag_move_amount)
             if direction == 'up':
                 y += move_amount
             elif direction == 'down':
@@ -34,17 +35,17 @@ async def simulate_actions(imei, num_actions):
             elif direction == 'right':
                 x += move_amount
             elif direction == 'diagonal_up_right':
-                x += move_amount * diag
-                y += move_amount * diag
+                x += diag_move_amount
+                y += diag_move_amount
             elif direction == 'diagonal_up_left':
-                x -= move_amount * diag
-                y += move_amount * diag
+                x -= diag_move_amount
+                y += diag_move_amount
             elif direction == 'diagonal_down_right':
-                x += move_amount * diag
-                y -= move_amount * diag
+                x += diag_move_amount
+                y -= diag_move_amount
             elif direction == 'diagonal_down_left':
-                x -= move_amount * diag
-                y -= move_amount * diag
+                x -= diag_move_amount
+                y -= diag_move_amount
 
         timestamp = datetime.now()
         response = await connect(timestamp, imei, x, y)

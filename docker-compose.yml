@@ -189,8 +189,6 @@ services:
       - bts-1
       - bts-2
       - bts-3
-    volumes:
-      - ./simulator/backend/csv_logs:/app/csv_logs
     networks:
       - mobile-network
 
