@@ -4,14 +4,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from constants import X_MAX, X_MIN, Y_MAX, Y_MIN
 import random
 import time
-import csv
+import asyncio
+from aiostream import stream
 
 
-def simulate_actions(imei, num_actions):
+async def simulate_actions(imei, num_actions):
     x = random.randint(X_MIN, X_MAX)
     y = random.randint(Y_MIN, Y_MAX)
-
-    csv_path = f'csv_logs/{imei}.csv'
 
     for _ in range(num_actions):
         if random.random() < 0.3:  # chance to stay at same location
@@ -41,23 +40,17 @@ def simulate_actions(imei, num_actions):
                 x -= 1
                 y -= 1
 
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        connect(x, y, imei, timestamp)
-        with open(csv_path, "a", newline='') as file:
-            writer = csv.writer(file)
-            writer.writerow([timestamp, x, y,])
-        time.sleep(1)
-
-    return csv_path
+        timestamp = datetime.now()
+        response = await connect(timestamp, imei, x, y)
+        yield {"timestamp": timestamp, "imei": imei, "x": x, "y": y, "response": response}
+        await asyncio.sleep(random.random() * 2)
 
 
-def generate(num_users, num_actions):
-    user_csv_logs = []
-    with ThreadPoolExecutor(max_workers=num_users) as executor:
-        imeis = [gen_imei() for _ in range(num_users)]
-        futures = {executor.submit(
-            simulate_actions, imei, num_actions): imei for imei in imeis}
-        for future in as_completed(futures):
-            user_csv_logs.append(future.result())
-
-    return user_csv_logs
+async def generate(num_users, num_actions):
+    imeis = [gen_imei() for _ in range(num_users)]
+    tasks = [simulate_actions(imei, num_actions) for imei in imeis]
+    
+    combined = stream.merge(*tasks)
+    async with combined.stream() as streamer:
+        async for item in streamer:
+            yield item
