@@ -203,6 +203,24 @@ services:
       - mobile-network
     depends_on:
       - mobile-exporter
+  
+  # anomaly detection
+  anomaly-detection:
+    build:
+      context: ./analytics/src/anomaly_detection
+      dockerfile: Dockerfile
+    container_name: anomaly-detection
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: mobile_network
+      DB_USER: ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-admin123}
+    depends_on:
+      - postgres
+    networks:
+      - mobile-network
+
   # Simulator Backend (Flask/FastAPI)
   simulator-backend:
     build:
