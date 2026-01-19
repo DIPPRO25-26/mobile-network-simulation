@@ -1,4 +1,4 @@
-Y_MAX = 100
-Y_MIN = -100
-X_MAX = 100
-X_MIN = -100
+Y_MAX = 400
+Y_MIN = 0
+X_MAX = 400
+X_MIN = 0

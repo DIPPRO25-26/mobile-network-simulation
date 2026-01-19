@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { generateSimulation } from "../components/simulatorApi.jsx";
 
-export default function GenerateForm() {
+export default function GenerateForm({ onLog }) {
   const [users, setUsers] = useState(1);
   const [events, setEvents] = useState(10);
   const [loading, setLoading] = useState(false);
@@ -13,16 +13,11 @@ export default function GenerateForm() {
     setStatus(null);
 
     try {
-      const blob = await generateSimulation(users, events);
+      await generateSimulation(users, events, (data) => {
+        onLog(data);
+      });
 
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "simulation.csv";
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      setStatus({ type: "success", message: "Simulation generated." });
+      setStatus({ type: "success", message: "Simulation finished." });
     } catch (err) {
       setStatus({ type: "error", message: err.message || "Generate failed." });
     } finally {
@@ -56,7 +51,7 @@ export default function GenerateForm() {
         </label>
 
         <button type="submit" disabled={loading}>
-          {loading ? "Generating..." : "Generate"}
+          {loading ? "Streaming..." : "Generate"}
         </button>
       </div>
 

@@ -1,9 +1,8 @@
 from threading import Thread
 import random
 import sys
-import time
 from hashlib import sha256
-import requests as r
+import httpx
 from comms.bts_discovery import scan_bts, closest_bts
 
 
@@ -41,37 +40,48 @@ bts_map = dict()
 bts_thread = Thread(target=scan_bts, args=(bts_map,), daemon=True)
 bts_thread.start()
 
+def get_bts_map():
+    return bts_map
+
 last_bts = dict()
 
-
-class NoBTSAvailable(Exception):
-    pass
-
-
-class ConnectError(Exception):
-    pass
-
-
-def connect(x, y, imei, timestamp):
+# switched to go-inspired errors
+# not a fan, but exception handling isnt the best with async generators
+async def connect(timestamp, imei, x, y):
     if len(bts_map) == 0:
-        raise NoBTSAvailable("No BTS found")
+        return {"error": "No BTS found", "detail": "No BTS found (at all)"}
     last = last_bts.get(imei)
 
     if last is None or last not in bts_map:
         last = closest_bts(x, y, bts_map)
         last_bts[imei] = last
+        if last is None:
+            return {"error": "No BTS found", "detail": "No BTS found (in signal range)"}
     print(f"Connecting to BTS: {last}", file=sys.stderr)
+
+    timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
     json = {"imei": imei, "timestamp": timestamp,
             "user_location": {"x": x, "y": y}}
+
     conn = bts_map[last]["connect"]
+
     url = f"http://{conn['ip']}:{conn['port']}/api/v1/connect"
-    d = r.post(url, json=json)
-    d = d.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            d = await client.post(url, json=json, timeout=3.0)
+            d = d.json()
+    except httpx.TimeoutException:
+        last = None
+        del bts_map[last]
+        print(f"Connection to BTS ({last}) failed. Removing from bts_map", file=sys.stderr)
+        return {"error": "Connect timeout", "detail": f"Connecting to {last} failed"}
     print(d, file=sys.stderr)
     if d.get('status') != "success":
-        print("Error response from bts")
-        return
+        print(f"Error response from bts: {d}", file=sys.stderr)
+        return {"error": "Non-success status from bts", 
+                "detail": f"{last} returned non-success status: {d.get('status')}", 
+                "response": d}
     if d["data"]["action"] == "handover":
         # use target bts if provided, or closest bts that isnt current.
         # this creates a loop if both closest bts-es want us to handover,
@@ -80,11 +90,7 @@ def connect(x, y, imei, timestamp):
                    closest_bts(x, y, {k:v for k,v in bts_map.items() if k != last})
         print(f"handover requested from bts, next request will be towards {target}", file=sys.stderr)
         last_bts[imei] = target
-
-
-
-if __name__ == "__main__":
-    for _ in range(10):
-        x = gen_imei()
-        print(x)
-        connect(x, random.randint(1, 3), random.randint(1000, 4000))
+        return {"error": None, 
+                "detail": f"Connected successfully to {last}, asked to handover", 
+                "response": d}
+    return {"error": None, "detail": f"Connected successfully to {last}", "response": d}

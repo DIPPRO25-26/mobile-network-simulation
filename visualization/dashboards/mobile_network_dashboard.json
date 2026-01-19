@@ -1,0 +1,73 @@
+{
+  "uid": "mobile-network",
+  "title": "Mobile Network Overview",
+  "schemaVersion": 27,
+  "version": 2,
+  "refresh": "1m",
+  "time": {"from":"now-1h","to":"now"},
+  "panels": [
+    {
+      "id": 1,
+      "gridPos": {"h":8,"w":12,"x":0,"y":0},
+      "title": "Korisnici po BTS-u",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "mobile_users_by_bts", "legendFormat": "{{bts}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 2,
+      "gridPos": {"h":8,"w":12,"x":12,"y":0},
+      "title": "Nedavne upozorenja",
+      "type": "table",
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "mobile_alert_last_timestamp_seconds", "legendFormat": "{{alert_type}}/{{severity}} @ {{bts}}", "refId": "A" }
+      ]
+    },
+    {
+      "id": 3,
+      "gridPos": {"h":8,"w":12,"x":0,"y":8},
+      "title": "Broj / stopa prijelaza između BTS-ova",
+      "type": "table",
+      "datasource": "Prometheus",
+      "targets": [
+        { "expr": "sum by (from_bts,to_bts) (mobile_handover_total)", "legendFormat": "{{from_bts}} -> {{to_bts}}", "refId": "A" },
+        { "expr": "sum by (from_bts,to_bts) (increase(mobile_handover_total[5m]))", "legendFormat": "{{from_bts}} -> {{to_bts}} (5m rate)", "refId": "B" }
+      ]
+    },
+    {
+      "id": 4,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "title": "XY koordinate korisnika",
+      "type": "xychart",
+      "datasource": {
+        "type": "postgres",
+        "uid": "P44368ADAD746BC27"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT user_location_x AS x, user_location_y AS y, imei AS User FROM cdr_records WHERE user_location_x IS NOT NULL AND user_location_y IS NOT NULL ORDER BY timestamp_arrival DESC LIMIT 1000;"
+        }
+      ],
+      "options": {
+        "series": [
+          {
+            "name": "Users",
+            "xField": "x",
+            "yField": "y",
+            "drawStyle": "points",
+            "pointSize": 4,
+            "seriesBy": "User"
+          }
+        ],
+  "legend": {
+    "displayMode": "hidden"
+  }
+      }
+    }
+  ]
+}

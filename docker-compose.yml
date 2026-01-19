@@ -161,18 +161,49 @@ services:
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
-      GF_INSTALL_PLUGINS: grafana-worldmap-panel
     ports:
       - "3000:3000"
     depends_on:
       - postgres
+      - prometheus
     networks:
       - mobile-network
     volumes:
       - grafana_data:/var/lib/grafana
       - ./visualization/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./visualization/datasources:/etc/grafana/provisioning/datasources:ro
-
+      - ./visualization/dashboards:/var/lib/grafana/dashboards:ro #change here
+  # Mobile Network Exporter for Prometheus
+  mobile-exporter:
+    build:
+      context: ./analytics
+      dockerfile: Dockerfile
+    container_name: mobile-exporter
+    environment:
+      DB_HOST: postgres
+      DB_NAME: mobile_network
+      DB_USER: ${DB_USER:-admin}
+      DB_PASSWORD: ${DB_PASSWORD:-admin123}
+      POLL_INTERVAL: 15
+    ports:
+      - "9187:9187"
+    networks:
+      - mobile-network
+    depends_on:
+      - postgres
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./analytics/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    networks:
+      - mobile-network
+    depends_on:
+      - mobile-exporter
+  
   # anomaly detection
   anomaly-detection:
     build:
@@ -206,8 +237,6 @@ services:
       - bts-1
       - bts-2
       - bts-3
-    volumes:
-      - ./simulator/backend/csv_logs:/app/csv_logs
     networks:
       - mobile-network
 
