@@ -6,4 +6,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-CMD ["python3", "rules_based_anomaly_detection.py"]
+CMD ["python3", "rules_based_anomaly_detector.py"]
