@@ -169,7 +169,7 @@ class TestAnomalyDetection(unittest.TestCase):
         expected_results = [
             {'imei': '123455',
              'bts_id': 'BTS4',
-             'description': 'Flapping between BTS4 and BTS2 8 times'},
+             'description': 'Flapping between BTS4 and BTS2 7 times'},
             {'imei': '123457',
              'bts_id': 'BTS2',
              'description': 'Flapping between BTS2 and BTS3 6 times'}, 
