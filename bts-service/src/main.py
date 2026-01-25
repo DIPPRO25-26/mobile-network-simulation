@@ -31,6 +31,7 @@ BTS_ID = os.getenv("BTS_ID", "BTS001")
 BTS_LAC = os.getenv("BTS_LAC", "1001")
 BTS_LOCATION_X = float(os.getenv("BTS_LOCATION_X", "100"))
 BTS_LOCATION_Y = float(os.getenv("BTS_LOCATION_Y", "100"))
+BTS_RANGE = int(os.getenv("BTS_RANGE", "150"))
 CENTRAL_API_URL = os.getenv("CENTRAL_API_URL", "http://central-backend:8080")
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
@@ -41,7 +42,7 @@ BTS_MAX_USER_CAPACITY = int(os.getenv("BTS_MAX_USER_CAPACITY", "100"))
 POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL = int(os.getenv("POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL", "5"))
 BTS_NEIGHBOR_RADIUS = int(os.getenv("BTS_NEIGHBOR_RADIUS", "500"))
 BTS_OVERLOAD_THRESHOLD = float(os.getenv("BTS_OVERLOAD_THRESHOLD", "0.8"))
-BTS_HANGOVER_DISTANCE_THRESHOLD = int(os.getenv("HANGOVER_DISTANCE_THRESHOLD", "150"))
+# BTS_HANGOVER_DISTANCE_THRESHOLD = int(os.getenv("HANGOVER_DISTANCE_THRESHOLD", "150"))
 
 USER_KEEP_ALIVE_INTERVAL = int(os.getenv("USER_KEEP_ALIVE_INTERVAL", "3")) # seconds
 STATUS_SENDER_INTERVAL = int(os.getenv("STATUS_SENDER_INTERVAL", "5")) # seconds
@@ -248,26 +249,35 @@ def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
     """Calculate Euclidean distance between two points"""
     return ((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5
 
+def calculate_signal_strength(distance: float, bts_range: float) -> float:
+    """Calculate signal strength based on distance and BTS range"""
+    if distance >= bts_range:
+        return 0.0
+    return (1 - (distance / bts_range) ** 2)
+
 
 def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
-    distance = calculate_distance(
+    distance_from_bts_to_user = calculate_distance(
         BTS_LOCATION_X, BTS_LOCATION_Y,
         user_location.x, user_location.y
     )
 
-    if distance < BTS_HANGOVER_DISTANCE_THRESHOLD:
-        return False, None
+    # range of [0.0, 1.0], higher is better
+    # 1.0 = at BTS, 0.0 = at edge of BTS range
+    signal_strength_for_user = calculate_signal_strength(
+        distance_from_bts_to_user,
+        BTS_RANGE
+    )
 
     known_bts = bts_information_redis_cache.get_all()
-    logger.info(f"Known BTS for handover decision: {known_bts}")
     if not known_bts:
         # TODO No valid BTS found for handover --> should we disconnect user?
         return True, None
     
-    # Find the closest valid BTS
+    # Find the valid BTS with the best signal strength for the user
     # Valid means within neighbor radius and not overloaded
-    closest_valid_bts_id = None
-    closest_distance = float("inf")
+    strongest_valid_bts_id = None
+    strongest_signal_strength = signal_strength_for_user
 
     for bts in known_bts:
         bts_id = bts.get("btsId")
@@ -294,14 +304,20 @@ def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
 
         if capacity > 0 and (current_load / capacity) >= BTS_OVERLOAD_THRESHOLD:
             continue
+        
+        # In real life, user would report its signal strength for neighbor BTS
+        # Here we are simulating that by calculating distance from neighbor BTS to user
+        # and deriving signal strength from that
+        distance_from_neighbour_to_user = calculate_distance(bts_x, bts_y, user_location.x, user_location.y)
+        signal_strength_for_user_at_neighbor = calculate_signal_strength(
+            distance_from_neighbour_to_user,
+            BTS_RANGE
+        )
+        if signal_strength_for_user_at_neighbor > strongest_signal_strength:
+            strongest_signal_strength = signal_strength_for_user_at_neighbor
+            strongest_valid_bts_id = bts_id
 
-        distance_from_user = calculate_distance(bts_x, bts_y, user_location.x, user_location.y)
-        if distance_from_user < closest_distance:
-            closest_distance = distance_from_user
-            closest_valid_bts_id = bts_id
-
-    return (True, closest_valid_bts_id) if closest_valid_bts_id else (True, None)
-
+    return (True, strongest_valid_bts_id) if strongest_valid_bts_id else (True, None)
 
 # -----------------------------------------------------------------------------------------------------
 # Central Backend Requests
@@ -440,6 +456,20 @@ async def connect_user(request: ConnectRequest):
     # Check for handover need
     # needs_handover, target_bts = should_handover(request.user_location)
 
+    if (calculate_distance(
+        BTS_LOCATION_X, BTS_LOCATION_Y,
+        request.user_location.x, request.user_location.y
+    ) > BTS_RANGE):
+        logger.warning(f"User {request.imei} is out of range for BTS {BTS_ID}")
+        
+        response_data = {
+            "bts_id": BTS_ID,
+            "action": "disconnect",
+            "target_bts_id": None,
+            "message": "User out of range"
+        }
+        return ConnectResponse(status="failure", data=response_data)
+
     # Prepare data for Central Backend
     user_information = {
         "imei": request.imei,
@@ -485,6 +515,20 @@ async def connect_user(request: ConnectRequest):
 @app.post("/api/v1/keepalive", response_model=KeepAliveResponse)
 async def keepalive_user(request: KeepAliveRequest):
     logger.info(f"User {request.imei} sending keep-alive to {BTS_ID}")
+
+    distance_from_bts_to_user = calculate_distance(
+        BTS_LOCATION_X, BTS_LOCATION_Y,
+        request.user_location.x, request.user_location.y
+    )
+    if distance_from_bts_to_user > BTS_RANGE: 
+        logger.warning(f"User {request.imei} is out of range for BTS {BTS_ID}")
+        response_data = {
+            "bts_id": BTS_ID,
+            "action": "disconnect",
+            "target_bts_id": None,
+            "message": "User out of range"
+        }
+        return ConnectResponse(status="failure", data=response_data)
     
     # Check for handover need
     needs_handover, target_bts = should_handover(request.user_location)
