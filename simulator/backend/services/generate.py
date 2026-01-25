@@ -38,10 +38,19 @@ async def simulate_actions(imei, num_actions):
 
         if (should_connect):
             response = await connect(timestamp, imei, final_x, final_y)
-            should_connect = False
+            inner_response = response.get("response", {})
+            data = inner_response.get("data", {})
+            if data.get("action") == "disconnect":
+                should_connect = True
+            else:
+                should_connect = False
         else:
             response = await send_keep_alive(final_x, final_y, imei, timestamp)
-            if (response.get("action") == "handover"):
+            inner_response = response.get("response", {})
+            data = inner_response.get("data", {})
+            if (data.get("action") == "handover"):
+                should_connect = True
+            if (data.get("action") == "disconnect"):
                 should_connect = True
 
         yield {
