@@ -59,7 +59,7 @@ services:
     networks:
       - mobile-network
     volumes:
-      - ./security/keys:/app/keys:ro
+      - ./security/certs:/certs:ro
       - ./security/audit:/app/audit
 
   # BTS Service 1
@@ -73,7 +73,7 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 100
       BTS_LOCATION_Y: 100
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
@@ -84,6 +84,8 @@ services:
       - redis
     networks:
       - mobile-network
+    volumes:
+      - ./security/certs:/certs:ro
 
   # BTS Service 2
   bts-2:
@@ -96,7 +98,7 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 300
       BTS_LOCATION_Y: 100
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
@@ -107,6 +109,8 @@ services:
       - redis
     networks:
       - mobile-network
+    volumes:
+      - ./security/certs:/certs:ro
 
   # BTS Service 3
   bts-3:
@@ -119,7 +123,7 @@ services:
       BTS_LAC: "1002"
       BTS_LOCATION_X: 200
       BTS_LOCATION_Y: 300
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
@@ -130,29 +134,8 @@ services:
       - redis
     networks:
       - mobile-network
-
-  # Analytics Service
-  # analytics:
-  #   build:
-  #     context: ./analytics
-  #     dockerfile: Dockerfile
-  #   container_name: analytics
-  #   environment:
-  #     DB_HOST: postgres
-  #     DB_PORT: 5432
-  #     DB_NAME: mobile_network
-  #     DB_USER: ${DB_USER:-admin}
-  #     DB_PASSWORD: ${DB_PASSWORD:-admin123}
-  #     REDIS_HOST: redis
-  #     REDIS_PORT: 6379
-  #   depends_on:
-  #     - postgres
-  #     - redis
-  #   networks:
-  #     - mobile-network
-  #   volumes:
-  #     - ./analytics/models:/app/models
-  #     - ./analytics/notebooks:/app/notebooks
+    volumes:
+      - ./security/certs:/certs:ro
 
   # Grafana
   grafana:
@@ -172,25 +155,8 @@ services:
       - grafana_data:/var/lib/grafana
       - ./visualization/dashboards:/etc/grafana/provisioning/dashboards:ro
       - ./visualization/datasources:/etc/grafana/provisioning/datasources:ro
-      - ./visualization/dashboards:/var/lib/grafana/dashboards:ro #change here
-  # Mobile Network Exporter for Prometheus
-  mobile-exporter:
-    build:
-      context: ./analytics
-      dockerfile: Dockerfile
-    container_name: mobile-exporter
-    environment:
-      DB_HOST: postgres
-      DB_NAME: mobile_network
-      DB_USER: ${DB_USER:-admin}
-      DB_PASSWORD: ${DB_PASSWORD:-admin123}
-      POLL_INTERVAL: 15
-    ports:
-      - "9187:9187"
-    networks:
-      - mobile-network
-    depends_on:
-      - postgres
+      - ./visualization/dashboards:/var/lib/grafana/dashboards:ro
+
   # Prometheus
   prometheus:
     image: prom/prometheus:latest
@@ -199,59 +165,6 @@ services:
       - ./analytics/prometheus.yml:/etc/prometheus/prometheus.yml:ro
     ports:
       - "9090:9090"
-    networks:
-      - mobile-network
-    depends_on:
-      - mobile-exporter
-  
-  # anomaly detection
-  anomaly-detection:
-    build:
-      context: ./analytics/src/anomaly_detection
-      dockerfile: Dockerfile
-    container_name: anomaly-detection
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      DB_NAME: mobile_network
-      DB_USER: ${DB_USER:-admin}
-      DB_PASSWORD: ${DB_PASSWORD:-admin123}
-    depends_on:
-      - postgres
-    networks:
-      - mobile-network
-
-  # Simulator Backend (Flask/FastAPI)
-  simulator-backend:
-    build:
-      context: ./simulator/backend
-      dockerfile: Dockerfile
-    container_name: simulator-backend
-    environment:
-      BTS_ENDPOINTS: http://bts-1:8080,http://bts-2:8080,http://bts-3:8080
-      HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
-      FRONTEND_URL: http://localhost:5001 # CORS reasons
-    ports:
-      - "5002:5000"
-    depends_on:
-      - bts-1
-      - bts-2
-      - bts-3
-    networks:
-      - mobile-network
-
-  # Simulator Frontend (React)
-  simulator-frontend:
-    build:
-      context: ./simulator/frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_BACKEND_URL: http://localhost:5002
-    container_name: simulator-frontend
-    ports:
-      - "5001:80"
-    depends_on:
-      - simulator-backend
     networks:
       - mobile-network
 
