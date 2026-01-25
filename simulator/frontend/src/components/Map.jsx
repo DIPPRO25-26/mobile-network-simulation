@@ -1,9 +1,26 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { getBtsLocations } from "./simulatorApi.jsx";
 
 export default function MapVisualization({ logs, onMapClick }) {
   const [btsList, setBtsList] = useState([]);
   const svgRef = useRef(null);
+
+  const btsColorMapRef = useRef(new Map());
+
+  const getColorForBts = (btsId) => {
+    if (!btsId) return null;
+
+    const m = btsColorMapRef.current;
+    if (m.has(btsId)) return m.get(btsId);
+
+    const hue = Math.floor(Math.random() * 360);
+    const sat = 70;
+    const light = 55;
+    const color = `hsl(${hue} ${sat}% ${light}%)`;
+
+    m.set(btsId, color);
+    return color;
+  };
 
   useEffect(() => {
     getBtsLocations()
@@ -14,6 +31,13 @@ export default function MapVisualization({ logs, onMapClick }) {
   const { paths, dots } = useMemo(() => {
     const grouped = {};
     const allDots = [];
+
+    const extractBtsId = (log) => {
+      return (
+        log.response?.response?.data?.bts_id ||
+        null
+      );
+    };
 
     logs.forEach((log) => {
       if (log.x === undefined || log.y === undefined) return;
@@ -33,10 +57,18 @@ export default function MapVisualization({ logs, onMapClick }) {
         type = "handover"; // yellow
       }
 
+      const btsId = extractBtsId(log);
+      let btsColor;
+      if (btsId) {
+        btsColor = getColorForBts(btsId);
+      }
+
       allDots.push({
         x: log.x,
         y: log.y,
         type,
+        btsId,
+        btsColor: btsColor,
         key: log.timestamp + imei
       });
     });
@@ -100,9 +132,11 @@ export default function MapVisualization({ logs, onMapClick }) {
           })}
 
           {dots.map((dot, i) => {
-            let color = "#4ade80"; // success/green
-            if (dot.type === "error") color = "#ef4444"; // red
-            if (dot.type === "handover") color = "#facc15"; // yellow
+            let color = dot.btsColor || "#4ade80";
+            if (!dot.btsColor) {
+              if (dot.type === "error") color = "#ef4444";
+              if (dot.type === "handover") color = "#facc15";
+            }
 
             return (
               <circle
