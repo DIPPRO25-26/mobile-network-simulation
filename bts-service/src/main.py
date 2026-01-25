@@ -27,7 +27,7 @@ from .observers.redis_cache import UserRedisCache, BtsInformationRedisCache, Bts
 # -----------------------------------------------------------------------------------------------------
 
 
-BTS_ID = os.getenv("BTS_ID", "BTS001")
+BTS_ID = os.getenv("BTS_ID", "bts-1")
 BTS_LAC = os.getenv("BTS_LAC", "1001")
 BTS_LOCATION_X = float(os.getenv("BTS_LOCATION_X", "100"))
 BTS_LOCATION_Y = float(os.getenv("BTS_LOCATION_Y", "100"))
@@ -317,7 +317,28 @@ def should_handover(user_location: UserLocation) -> tuple[bool, Optional[str]]:
             strongest_signal_strength = signal_strength_for_user_at_neighbor
             strongest_valid_bts_id = bts_id
 
-    return (True, strongest_valid_bts_id) if strongest_valid_bts_id else (True, None)
+    return (True, strongest_valid_bts_id) if strongest_valid_bts_id else (False, None)
+
+
+# -----------------------------------------------------------------------------------------------------
+# Neighbour BTS Requests
+# -----------------------------------------------------------------------------------------------------
+
+
+async def notify_previous_bts_to_remove_user(previous_bts_id: str, imei: str) -> None:
+    """Notify previous BTS to remove user from its cache"""
+    try:
+        previous_bts_url = f"http://{previous_bts_id}:8080/api/v1/user/remove"
+        async with httpx.AsyncClient() as client:
+            await client.post(
+                previous_bts_url,
+                json={"imei": imei},
+                timeout=2.0
+            )
+            logger.info(f"Notified {previous_bts_id} to remove user {imei}")
+    except Exception as e:
+        logger.warning(f"Failed to notify {previous_bts_id} to remove user {imei}: {e}") 
+
 
 # -----------------------------------------------------------------------------------------------------
 # Central Backend Requests
@@ -468,7 +489,7 @@ async def connect_user(request: ConnectRequest):
             "target_bts_id": None,
             "message": "User out of range"
         }
-        return ConnectResponse(status="failure", data=response_data)
+        return ConnectResponse(status="error", data=response_data)
 
     # Prepare data for Central Backend
     user_information = {
@@ -486,6 +507,10 @@ async def connect_user(request: ConnectRequest):
 
     # Send to Central Backend with HMAC signature
     central_response = await send_user_information_to_central_backend(user_information)
+    previous_bts_id = central_response["data"]["previousLocation"]["btsId"]
+
+    if previous_bts_id and previous_bts_id != BTS_ID:
+        await notify_previous_bts_to_remove_user(previous_bts_id, request.imei)
 
     notify_observers(event="user_connected", data={
         "imei": request.imei,
@@ -572,6 +597,27 @@ async def keepalive_user(request: KeepAliveRequest):
         logger.warning(f"Handover suggested for {request.imei}")
     
     return KeepAliveResponse(status="success", data=response_data)
+
+
+@app.post("/api/v1/user/remove")
+async def remove_user(payload: dict):
+    imei = payload.get("imei")
+    if not imei:
+        logger.error("IMEI not provided for user removal")
+        return {"status": "error", "message": "IMEI not provided"}
+
+    logger.info(f"Removing user {imei} from BTS {BTS_ID}")
+    
+    if user_redis_cache:
+        if (user_redis_cache.is_imei_connected(imei)):
+            user_redis_cache.remove_connected_imei(imei)
+            logger.info(f"User {imei} removed from the list of connected users in {BTS_ID}")
+        else:
+            logger.info(f"User {imei} not found in the list of connected users in {BTS_ID}")
+            return {"status": "success", "message": f"User {imei} not found in {BTS_ID}"}
+    
+    return {"status": "success", "message": f"User {imei} removed from {BTS_ID}"}
+
 
 @app.post("/api/v1/shutdown")
 async def shutdown_bts(payload: dict):

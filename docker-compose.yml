@@ -74,7 +74,7 @@ services:
       dockerfile: Dockerfile
     container_name: bts-1
     environment:
-      BTS_ID: BTS001
+      BTS_ID: bts-1
       BTS_LAC: "1001"
       BTS_LOCATION_X: 100
       BTS_LOCATION_Y: 100
@@ -105,7 +105,7 @@ services:
       dockerfile: Dockerfile
     container_name: bts-2
     environment:
-      BTS_ID: BTS002
+      BTS_ID: bts-2
       BTS_LAC: "1001"
       BTS_LOCATION_X: 300
       BTS_LOCATION_Y: 100
@@ -136,7 +136,7 @@ services:
       dockerfile: Dockerfile
     container_name: bts-3
     environment:
-      BTS_ID: BTS003
+      BTS_ID: bts-3
       BTS_LAC: "1002"
       BTS_LOCATION_X: 200
       BTS_LOCATION_Y: 300

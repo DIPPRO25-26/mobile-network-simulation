@@ -79,8 +79,20 @@ class UserRedisCache:
     def get_connected_imeis(self) -> set[str]:
         return set(self.redis_client.smembers(self._users_set_key))
 
+    def is_imei_connected(self, imei: str) -> bool:
+        return self.redis_client.sismember(self._users_set_key, imei)
+
     def remove_connected_imei(self, imei: str) -> None:
-        self.redis_client.srem(self._users_set_key, imei)
+        """Remove user from connected set and delete their metadata"""
+        user_key = f"{self._user_key_prefix}{imei}"
+        try:
+            pipe = self.redis_client.pipeline(transaction=False)
+            pipe.srem(self._users_set_key, imei)
+            pipe.delete(user_key)
+            pipe.execute()
+            logger.debug(f"Redis: Removed {imei} from {self.owner_bts_id}")
+        except Exception as e:
+            logger.error(f"Redis: Failed to remove {imei} from {self.owner_bts_id}: {e}")
 
     def connected_count(self) -> int:
         return int(self.redis_client.scard(self._users_set_key))
