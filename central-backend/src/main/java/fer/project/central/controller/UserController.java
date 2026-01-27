@@ -5,14 +5,14 @@ import fer.project.central.model.UserEventRequest;
 import fer.project.central.model.UserEventResponse;
 import fer.project.central.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
-import fer.project.central.controller.util.HmacValidator;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import jakarta.validation.Validator;
-import jakarta.validation.ConstraintViolation;
+
 import java.util.Set;
 
 @RestController
@@ -22,7 +22,6 @@ import java.util.Set;
 public class UserController {
 
     private final UserService userService;
-    private final HmacValidator hmacValidator;
     private final ObjectMapper objectMapper;
     private final Validator validator;
 
@@ -31,15 +30,7 @@ public class UserController {
             description = "Receives information about user presence from Base Transceiver Station."
     )
     @PostMapping
-    public ResponseEntity<UserEventResponse> processUserEvent(
-            @RequestBody String rawBody,
-            @RequestHeader(value = "X-HMAC-Signature", required = true) String hmacSignature,
-            @RequestHeader(value = "X-Timestamp", required = true) String timestamp) {
-
-        if (!hmacValidator.validate(rawBody, timestamp, hmacSignature)) {
-            log.warn("Invalid HMAC signature");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
+    public ResponseEntity<UserEventResponse> processUserEvent(@RequestBody String rawBody) {
 
         UserEventRequest request;
         try {
