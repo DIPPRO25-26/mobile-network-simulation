@@ -9,7 +9,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +26,9 @@ public class BTSService {
     }
 
     public BTS registerBTS(BTS bts) {
+        // ✅ business validation (polja postoje, ali provjeri da imaju smisla)
+        validateBtsBusinessRules(bts);
+
         if (btsRepository.findByBtsId(bts.getBtsId()).isPresent()) {
             throw new DuplicateBtsException(bts.getBtsId());
         }
@@ -40,8 +42,15 @@ public class BTSService {
     public BTS updateBTSStatus(String btsId, String newStatus) {
         BTS bts = getBTSByBtsId(btsId);
 
-        if (!bts.getStatus().equals(newStatus)) {
-            bts.setStatus(newStatus);
+        // minimalna normalizacija (da " ACTIVE " ne radi probleme)
+        String normalized = newStatus == null ? null : newStatus.trim();
+
+        if (normalized == null || normalized.isEmpty()) {
+            throw new IllegalArgumentException("status must not be empty");
+        }
+
+        if (!bts.getStatus().equals(normalized)) {
+            bts.setStatus(normalized);
             bts.setUpdatedAt(LocalDateTime.now());
             return btsRepository.save(bts);
         }
@@ -49,4 +58,32 @@ public class BTSService {
         return bts;
     }
 
+    /**
+     * Minimalna provjera smislenosti vrijednosti (ne zamjenjuje @Valid anotacije).
+     * Ova pravila su "safe" i neće ti razbiti flow:
+     * - maxCapacity > 0
+     * - currentLoad u [0, maxCapacity]
+     */
+    private void validateBtsBusinessRules(BTS bts) {
+        if (bts == null) {
+            throw new IllegalArgumentException("BTS payload is required");
+        }
+
+        // ako su ovi fieldovi primitive int u BTS modelu, null check nije potreban,
+        // ali je bezopasan ako su Integer.
+        Integer maxCapacity = bts.getMaxCapacity();
+        Integer currentLoad = bts.getCurrentLoad();
+
+        if (maxCapacity == null || maxCapacity <= 0) {
+            throw new IllegalArgumentException("maxCapacity must be > 0");
+        }
+
+        if (currentLoad == null || currentLoad < 0) {
+            throw new IllegalArgumentException("currentLoad must be >= 0");
+        }
+
+        if (currentLoad > maxCapacity) {
+            throw new IllegalArgumentException("currentLoad must be <= maxCapacity");
+        }
+    }
 }
