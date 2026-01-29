@@ -1,9 +1,26 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { getBtsLocations } from "./simulatorApi.jsx";
 
 export default function MapVisualization({ logs, onMapClick }) {
   const [btsList, setBtsList] = useState([]);
   const svgRef = useRef(null);
+
+  const btsColorMapRef = useRef(new Map());
+
+  const getColorForBts = (btsId) => {
+    if (!btsId) return null;
+
+    const m = btsColorMapRef.current;
+    if (m.has(btsId)) return m.get(btsId);
+
+    const hue = Math.floor(Math.random() * 360);
+    const sat = 70;
+    const light = 55;
+    const color = `hsl(${hue} ${sat}% ${light}%)`;
+
+    m.set(btsId, color);
+    return color;
+  };
 
   useEffect(() => {
     getBtsLocations()
@@ -14,6 +31,17 @@ export default function MapVisualization({ logs, onMapClick }) {
   const { paths, dots } = useMemo(() => {
     const grouped = {};
     const allDots = [];
+
+    const extractBtsId = (log) => {
+      return (
+        log.response?.response?.data?.bts_id ||
+        null
+      );
+    };
+
+    const extractStatus = (log) => {
+      return log.response?.response?.status || null;
+    }
 
     logs.forEach((log) => {
       if (log.x === undefined || log.y === undefined) return;
@@ -33,10 +61,20 @@ export default function MapVisualization({ logs, onMapClick }) {
         type = "handover"; // yellow
       }
 
+      let btsId = extractBtsId(log);
+      const status = extractStatus(log);
+      if (status === "failure") {
+        btsId = null;
+      }
+      const disconnected = !btsId;
+
       allDots.push({
         x: log.x,
         y: log.y,
         type,
+        btsId,
+        disconnected,
+        btsColor: btsId ? getColorForBts(btsId) : null,
         key: log.timestamp + imei
       });
     });
@@ -100,20 +138,32 @@ export default function MapVisualization({ logs, onMapClick }) {
           })}
 
           {dots.map((dot, i) => {
-            let color = "#4ade80"; // success/green
-            if (dot.type === "error") color = "#ef4444"; // red
-            if (dot.type === "handover") color = "#facc15"; // yellow
+            let fill = dot.btsColor || "#4ade80";
+            if (!dot.btsColor) {
+              if (dot.type === "error") fill = "#ef4444";
+              if (dot.type === "handover") fill = "#facc15";
+            }
+
+            const isDisc = dot.disconnected;
+            if (isDisc) fill = "rgba(148,163,184,0.9)";
 
             return (
-              <circle
-                key={i}
-                cx={dot.x}
-                cy={dot.y}
-                r="3"
-                fill={color}
-                stroke="#000"
-                strokeWidth="0.5"
-              />
+              <g key={i} transform={`translate(${dot.x}, ${dot.y})`}>
+                <circle
+                  r={isDisc ? 4 : 3}
+                  fill={fill}
+                  stroke={isDisc ? "#ffffff" : "#000"}
+                  strokeWidth={isDisc ? 1.5 : 0.5}
+                  strokeDasharray={isDisc ? "2 2" : undefined}
+                />
+
+                {isDisc && (
+                  <>
+                    <line x1={-3} y1={-3} x2={3} y2={3} stroke="#111827" strokeWidth="1" />
+                    <line x1={-3} y1={3} x2={3} y2={-3} stroke="#111827" strokeWidth="1" />
+                  </>
+                )}
+              </g>
             );
           })}
         </svg>

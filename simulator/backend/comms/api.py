@@ -82,6 +82,50 @@ async def connect(timestamp, imei, x, y):
         return {"error": "Non-success status from bts", 
                 "detail": f"{last} returned non-success status: {d.get('status')}", 
                 "response": d}
+    # if d["data"]["action"] == "handover":
+    #     # use target bts if provided, or closest bts that isnt current.
+    #     # this creates a loop if both closest bts-es want us to handover,
+    #     # but dont provide targets
+    #     target = d["data"]["target_bts_id"] or \
+    #                closest_bts(x, y, {k:v for k,v in bts_map.items() if k != last})
+    #     print(f"handover requested from bts, next request will be towards {target}", file=sys.stderr)
+    #     last_bts[imei] = target
+    return {"error": None, "detail": f"Connected successfully to {last}", "response": d}
+    
+
+async def send_keep_alive(x, y, imei, timestamp):
+    if len(bts_map) == 0:
+        return {"error": "No BTS found", "detail": "No BTS found (at all)"}
+    last = last_bts.get(imei)
+
+    if last is None or last not in bts_map:
+        last = closest_bts(x, y, bts_map)
+        last_bts[imei] = last
+    print(f"Sending keep alive to BTS: {last}", file=sys.stderr)
+
+    timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+    json = {"imei": imei, "timestamp": timestamp,
+            "user_location": {"x": x, "y": y}}
+    
+    conn = bts_map[last]["connect"]
+
+    url = f"http://{conn['ip']}:{conn['port']}/api/v1/keepalive"
+    try:
+        async with httpx.AsyncClient() as client:
+            d = await client.post(url, json=json, timeout=3.0)
+            d = d.json()
+    except httpx.TimeoutException:
+        last = None
+        del bts_map[last]
+        print(f"Sending keep alive to BTS ({last}) failed. Removing from bts_map", file=sys.stderr)
+        return {"error": "Connect timeout", "detail": f"Sending keep alive to {last} failed"}
+    print(d, file=sys.stderr)
+    if d.get('status') != "success":
+        print(f"Error response from bts: {d}", file=sys.stderr)
+        return {"error": "Non-success status from bts", 
+                "detail": f"{last} returned non-success status: {d.get('status')}", 
+                "response": d}
     if d["data"]["action"] == "handover":
         # use target bts if provided, or closest bts that isnt current.
         # this creates a loop if both closest bts-es want us to handover,
@@ -91,6 +135,8 @@ async def connect(timestamp, imei, x, y):
         print(f"handover requested from bts, next request will be towards {target}", file=sys.stderr)
         last_bts[imei] = target
         return {"error": None, 
-                "detail": f"Connected successfully to {last}, asked to handover", 
+                "detail": f"Sent keep alive successfully to {last}, asked to handover",
+                "action": "handover",
                 "response": d}
-    return {"error": None, "detail": f"Connected successfully to {last}", "response": d}
+    
+    return {"error": None, "detail": f"Sent keep alive successfully to {last}", "response": d}
