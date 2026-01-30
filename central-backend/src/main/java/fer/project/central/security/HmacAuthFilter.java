@@ -13,7 +13,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 
 @Component
 @RequiredArgsConstructor
@@ -98,21 +100,14 @@ public class HmacAuthFilter extends OncePerRequestFilter {
 
     /**
      * Accepts timestamps in:
-     * - seconds (10 digits, e.g. 1769551665)
-     * - millis  (13 digits, e.g. 1769551665123)
-     * - also tolerates numeric strings with spaces
+     - iso8601 format (no timestamp, local time)
      */
     private Long parseToEpochSeconds(String tsHeader) {
         try {
             String s = tsHeader.trim();
-            long raw = Long.parseLong(s);
-
-            // heuristic: 13-digit -> millis
-            if (s.length() >= 13) {
-                return raw / 1000;
-            }
-            return raw;
-        } catch (NumberFormatException e) {
+            log.error("Received value: '{}'", s); 
+            return LocalDateTime.parse(s).toEpochSecond(ZoneOffset.UTC);
+        } catch (DateTimeParseException e) {
             return null;
         }
     }
@@ -135,7 +130,7 @@ public class HmacAuthFilter extends OncePerRequestFilter {
               "path":"%s"
             }
             """.formatted(
-                OffsetDateTime.now(),
+                LocalDateTime.now(),
                 status.value(),
                 status.getReasonPhrase(),
                 path

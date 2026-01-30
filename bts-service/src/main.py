@@ -29,6 +29,7 @@ from .observers.redis_cache import UserRedisCache, BtsInformationRedisCache, Bts
 
 BTS_ID = os.getenv("BTS_ID", "bts-1")
 BTS_LAC = os.getenv("BTS_LAC", "1001")
+BTS_RANGE = int(os.getenv("BTS_RANGE", "150"))
 BTS_LOCATION_X = float(os.getenv("BTS_LOCATION_X", "100"))
 BTS_LOCATION_Y = float(os.getenv("BTS_LOCATION_Y", "100"))
 CENTRAL_API_URL = os.getenv("CENTRAL_API_URL", "http://localhost:8080")

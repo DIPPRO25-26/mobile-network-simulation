@@ -139,10 +139,8 @@ export default function MapVisualization({ logs, onMapClick }) {
 
           {dots.map((dot, i) => {
             let fill = dot.btsColor || "#4ade80";
-            if (!dot.btsColor) {
-              if (dot.type === "error") fill = "#ef4444";
-              if (dot.type === "handover") fill = "#facc15";
-            }
+            if (dot.type === "error") fill = "#ef4444";
+            if (dot.type === "handover") fill = "#facc15";
 
             const isDisc = dot.disconnected;
             if (isDisc) fill = "rgba(148,163,184,0.9)";

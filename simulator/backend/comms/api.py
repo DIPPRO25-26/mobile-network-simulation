@@ -4,6 +4,7 @@ import sys
 from hashlib import sha256
 import httpx
 from comms.bts_discovery import scan_bts, closest_bts
+import traceback
 
 
 def calc_luhn(i):
@@ -61,7 +62,7 @@ async def connect(timestamp, imei, x, y):
 
     timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
-    json = {"imei": imei, "timestamp": timestamp,
+    req_json = {"imei": imei, "timestamp": timestamp,
             "user_location": {"x": x, "y": y}}
 
     conn = bts_map[last]["connect"]
@@ -69,16 +70,19 @@ async def connect(timestamp, imei, x, y):
     url = f"http://{conn['ip']}:{conn['port']}/api/v1/connect"
     try:
         async with httpx.AsyncClient() as client:
-            d = await client.post(url, json=json, timeout=3.0)
+            d = await client.post(url, json=req_json, timeout=3.0)
+            print("LOGLOGLOG", d.status_code, d.text)
             d = d.json()
-    except httpx.TimeoutException:
-        last = None
-        del bts_map[last]
+    except httpx.TimeoutException, Exception:
+        traceback.print_exc()
+        old = last
+        last_bts[imei] = None
         print(f"Connection to BTS ({last}) failed. Removing from bts_map", file=sys.stderr)
         return {"error": "Connect timeout", "detail": f"Connecting to {last} failed"}
     print(d, file=sys.stderr)
     if d.get('status') != "success":
         print(f"Error response from bts: {d}", file=sys.stderr)
+        last_bts[imei] = None
         return {"error": "Non-success status from bts", 
                 "detail": f"{last} returned non-success status: {d.get('status')}", 
                 "response": d}
@@ -116,8 +120,7 @@ async def send_keep_alive(x, y, imei, timestamp):
             d = await client.post(url, json=json, timeout=3.0)
             d = d.json()
     except httpx.TimeoutException:
-        last = None
-        del bts_map[last]
+        last_bts[imei] = None
         print(f"Sending keep alive to BTS ({last}) failed. Removing from bts_map", file=sys.stderr)
         return {"error": "Connect timeout", "detail": f"Sending keep alive to {last} failed"}
     print(d, file=sys.stderr)
