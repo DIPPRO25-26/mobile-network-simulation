@@ -6,6 +6,7 @@ export default function MapVisualization({ logs, onMapClick }) {
   const svgRef = useRef(null);
 
   const btsColorMapRef = useRef(new Map());
+  const BTS_COLORS = ["#ae62f4", "#347ff8", "#6ae2fa"];
 
   const getColorForBts = (btsId) => {
     if (!btsId) return null;
@@ -13,11 +14,7 @@ export default function MapVisualization({ logs, onMapClick }) {
     const m = btsColorMapRef.current;
     if (m.has(btsId)) return m.get(btsId);
 
-    const hue = Math.floor(Math.random() * 360);
-    const sat = 70;
-    const light = 55;
-    const color = `hsl(${hue} ${sat}% ${light}%)`;
-
+    const color = BTS_COLORS[m.size % BTS_COLORS.length];
     m.set(btsId, color);
     return color;
   };
@@ -48,7 +45,7 @@ export default function MapVisualization({ logs, onMapClick }) {
 
       const imei = log.imei;
       if (!grouped[imei]) grouped[imei] = [];
-      
+
       grouped[imei].push({ x: log.x, y: log.y });
 
       let type = "success"; // green
@@ -84,7 +81,7 @@ export default function MapVisualization({ logs, onMapClick }) {
 
   const handleSvgClick = (e) => {
     if (!svgRef.current) return;
-    
+
     const rect = svgRef.current.getBoundingClientRect();
     const scaleX = 400 / rect.width;
     const scaleY = 400 / rect.height;
@@ -101,15 +98,15 @@ export default function MapVisualization({ logs, onMapClick }) {
     <div className="map-wrapper">
       <h3>Live Map (0-400)</h3>
       <div className="map-container">
-        <svg 
+        <svg
           ref={svgRef}
-          viewBox="0 0 400 400" 
-          className="simulation-map" 
+          viewBox="0 0 400 400"
+          className="simulation-map"
           onClick={handleSvgClick}
         >
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1"/>
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="400" height="400" fill="url(#grid)" />
@@ -117,7 +114,7 @@ export default function MapVisualization({ logs, onMapClick }) {
           {btsList.map((bts) => (
             <g key={bts.bts_id} transform={`translate(${bts.x}, ${bts.y})`}>
               <polygon points="0,-5 -4,4 4,4" fill="#38bdf8" fillOpacity="0.4" stroke="#38bdf8" strokeWidth="1" />
-              <text y="14" fontSize="8" fill="#38bdf8" textAnchor="middle" style={{pointerEvents:'none'}}>
+              <text y="14" fontSize="8" fill="#38bdf8" textAnchor="middle" style={{ pointerEvents: 'none' }}>
                 {bts.bts_id}
               </text>
             </g>
