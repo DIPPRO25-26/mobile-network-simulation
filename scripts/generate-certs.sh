@@ -84,31 +84,3 @@ echo "   For production, use proper CA-signed certificates."
 echo ""
 echo "💡 Update your .env file with the HMAC key:"
 echo "   HMAC_SECRET_KEY=$HMAC_KEY"
-
-PKCS12_DIR="$PROJECT_ROOT/central-backend/resources/certs"
-mkdir -p "$PKCS12_DIR"
-
-echo "Generating .p12 files for server and BTS clients..."
-
-# Server .p12
-openssl pkcs12 -export \
-    -inkey "$SECURITY_DIR/certs/server-key.pem" \
-    -in "$SECURITY_DIR/certs/server-cert.pem" \
-    -certfile "$SECURITY_DIR/certs/ca-cert.pem" \
-    -name "central-backend" \
-    -passout pass: \
-    -out "$PKCS12_DIR/server.p12"
-echo "Server .p12 generated: $PKCS12_DIR/server.p12"
-
-# BTS .p12 (za primjer samo BTS-1, može se dodati više po potrebi)
-openssl pkcs12 -export \
-    -inkey "$SECURITY_DIR/certs/bts-1-key.pem" \
-    -in "$SECURITY_DIR/certs/bts-1-cert.pem" \
-    -certfile "$SECURITY_DIR/certs/ca-cert.pem" \
-    -name "bts-1" \
-    -passout pass: \
-    -out "$PKCS12_DIR/bts-1.p12"
-echo "BTS .p12 generated: $PKCS12_DIR/bts-1.p12"
-
-echo ""
-echo "📁 All .p12 files are ready in: $PKCS12_DIR"

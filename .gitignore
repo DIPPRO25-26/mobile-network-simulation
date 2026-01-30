@@ -52,10 +52,10 @@ yarn-error.log*
 
 # Security - IMPORTANT: Never commit real secrets!
 security/keys/*.key
+security/certs/*.pem
+security/certs/*.crt
 !security/keys/.gitkeep
 !security/certs/.gitkeep
-security/certs/
-central-backend/src/main/resources/certs/
 
 # Logs and temporary files
 logs/
