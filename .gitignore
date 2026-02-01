@@ -56,6 +56,9 @@ security/certs/*.pem
 security/certs/*.crt
 !security/keys/.gitkeep
 !security/certs/.gitkeep
+security/certs/**/*
+!security/certs/README.md
+**/*.p12
 
 # Logs and temporary files
 logs/

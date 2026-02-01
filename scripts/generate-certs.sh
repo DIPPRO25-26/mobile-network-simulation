@@ -1,86 +1,128 @@
 #!/bin/bash
 
-# Generate security certificates and keys for mobile network simulation
-
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SECURITY_DIR="$PROJECT_ROOT/security"
 
+CERTS_DIR="$SECURITY_DIR/certs"
+KEYS_DIR="$SECURITY_DIR/keys"
+
 echo "🔐 Generating security certificates and keys..."
 
-# Create directories
-mkdir -p "$SECURITY_DIR/certs"
-mkdir -p "$SECURITY_DIR/keys"
+mkdir -p "$CERTS_DIR"
+mkdir -p "$KEYS_DIR"
 mkdir -p "$SECURITY_DIR/audit"
 
-# Generate HMAC secret key
 echo "📝 Generating HMAC secret key..."
 HMAC_KEY=$(openssl rand -base64 32)
-echo "$HMAC_KEY" > "$SECURITY_DIR/keys/hmac_secret.key"
-chmod 600 "$SECURITY_DIR/keys/hmac_secret.key"
+echo "$HMAC_KEY" > "$KEYS_DIR/hmac_secret.key"
+chmod 600 "$KEYS_DIR/hmac_secret.key"
 echo "✅ HMAC key saved to security/keys/hmac_secret.key"
 
-# Generate CA (Certificate Authority)
 echo "🏢 Generating Certificate Authority..."
-openssl genrsa -out "$SECURITY_DIR/certs/ca-key.pem" 4096
-openssl req -new -x509 -days 365 -key "$SECURITY_DIR/certs/ca-key.pem" \
-    -out "$SECURITY_DIR/certs/ca-cert.pem" \
-    -subj "/C=HR/ST=Zagreb/L=Zagreb/O=FER/OU=Mobile Network Simulation/CN=Mobile-Network-CA"
+
+mkdir -p "$CERTS_DIR/ca"
+
+openssl genrsa -out "$CERTS_DIR/ca/ca.key" 4096
+openssl req -new -x509 -days 3650 \
+  -key "$CERTS_DIR/ca/ca.key" \
+  -out "$CERTS_DIR/ca/ca.crt" \
+  -subj "//C=HR/ST=Zagreb/L=Zagreb/O=FER/OU=Mobile Network Simulation/CN=Mobile-Network-CA"
+
 echo "✅ CA certificate generated"
 
-# Generate server certificate (for central backend)
-echo "🖥️  Generating server certificate..."
-openssl genrsa -out "$SECURITY_DIR/certs/server-key.pem" 4096
-openssl req -new -key "$SECURITY_DIR/certs/server-key.pem" \
-    -out "$SECURITY_DIR/certs/server.csr" \
-    -subj "/C=HR/ST=Zagreb/L=Zagreb/O=FER/OU=Central Backend/CN=central-backend"
-openssl x509 -req -days 365 -in "$SECURITY_DIR/certs/server.csr" \
-    -CA "$SECURITY_DIR/certs/ca-cert.pem" \
-    -CAkey "$SECURITY_DIR/certs/ca-key.pem" \
+generate_cert () {
+  SERVICE_NAME=$1
+  SERVICE_DIR="$CERTS_DIR/$SERVICE_NAME"
+
+  echo "🔑 Generating certificate for $SERVICE_NAME"
+
+  mkdir -p "$SERVICE_DIR"
+
+  openssl genrsa -out "$SERVICE_DIR/tls.key" 2048
+
+  cat > "$SERVICE_DIR/openssl.cnf" <<EOF
+[req]
+default_bits = 2048
+prompt = no
+default_md = sha256
+distinguished_name = dn
+req_extensions = req_ext
+
+[dn]
+C = HR
+ST = Zagreb
+L = Zagreb
+O = FER
+OU = $SERVICE_NAME
+CN = $SERVICE_NAME
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1 = $SERVICE_NAME
+EOF
+
+  openssl req -new \
+    -key "$SERVICE_DIR/tls.key" \
+    -out "$SERVICE_DIR/tls.csr" \
+    -config "$SERVICE_DIR/openssl.cnf"
+
+  openssl x509 -req -days 365 \
+    -in "$SERVICE_DIR/tls.csr" \
+    -CA "$CERTS_DIR/ca/ca.crt" \
+    -CAkey "$CERTS_DIR/ca/ca.key" \
     -CAcreateserial \
-    -out "$SECURITY_DIR/certs/server-cert.pem"
-rm "$SECURITY_DIR/certs/server.csr"
-echo "✅ Server certificate generated"
+    -out "$SERVICE_DIR/tls.crt" \
+    -extensions req_ext \
+    -extfile "$SERVICE_DIR/openssl.cnf"
 
-# Generate client certificates (for BTS services)
-for i in 1 2 3; do
-    echo "📡 Generating BTS-$i client certificate..."
-    openssl genrsa -out "$SECURITY_DIR/certs/bts-$i-key.pem" 4096
-    openssl req -new -key "$SECURITY_DIR/certs/bts-$i-key.pem" \
-        -out "$SECURITY_DIR/certs/bts-$i.csr" \
-        -subj "/C=HR/ST=Zagreb/L=Zagreb/O=FER/OU=BTS Service/CN=bts-$i"
-    openssl x509 -req -days 365 -in "$SECURITY_DIR/certs/bts-$i.csr" \
-        -CA "$SECURITY_DIR/certs/ca-cert.pem" \
-        -CAkey "$SECURITY_DIR/certs/ca-key.pem" \
-        -CAcreateserial \
-        -out "$SECURITY_DIR/certs/bts-$i-cert.pem"
-    rm "$SECURITY_DIR/certs/bts-$i.csr"
-done
-echo "✅ BTS client certificates generated"
+  rm "$SERVICE_DIR/tls.csr" "$SERVICE_DIR/openssl.cnf"
+}
 
-# Set proper permissions
-chmod 600 "$SECURITY_DIR/certs/"*.pem
-chmod 600 "$SECURITY_DIR/keys/"*.key
+generate_cert "central-backend"
 
-# Create .gitkeep files
-touch "$SECURITY_DIR/certs/.gitkeep"
-touch "$SECURITY_DIR/keys/.gitkeep"
+# Keystore (Spring Boot zahtijeva)
+openssl pkcs12 -export \
+  -in "$CERTS_DIR/central-backend/tls.crt" \
+  -inkey "$CERTS_DIR/central-backend/tls.key" \
+  -out "$CERTS_DIR/central-backend/keystore.p12" \
+  -name central-backend \
+  -password pass:changeit
+
+# Truststore
+keytool -importcert \
+  -noprompt \
+  -alias root-ca \
+  -file "$CERTS_DIR/ca/ca.crt" \
+  -keystore "$CERTS_DIR/central-backend/truststore.p12" \
+  -storepass changeit
+
+
+generate_cert "bts-service"
+generate_cert "analytics"
+generate_cert "simulator"
+
+chmod 600 "$CERTS_DIR"/**/*.key
+chmod 600 "$KEYS_DIR"/*.key
+
+touch "$CERTS_DIR/.gitkeep"
+touch "$KEYS_DIR/.gitkeep"
 touch "$SECURITY_DIR/audit/.gitkeep"
 
 echo ""
 echo "✅ All certificates and keys generated successfully!"
 echo ""
-echo "📁 Generated files:"
-echo "   - HMAC key: security/keys/hmac_secret.key"
-echo "   - CA certificate: security/certs/ca-cert.pem"
-echo "   - Server certificate: security/certs/server-cert.pem"
-echo "   - BTS certificates: security/certs/bts-{1,2,3}-cert.pem"
+echo "📁 Generated:"
+echo " - Root CA: security/certs/ca/ca.crt"
+echo " - Central Backend: cert + keystore + truststore"
+echo " - Clients: bts-service, analytics, simulator"
+echo " - HMAC key: security/keys/hmac_secret.key"
 echo ""
-echo "⚠️  IMPORTANT: These are development certificates only!"
-echo "   Never commit these files to version control."
-echo "   For production, use proper CA-signed certificates."
-echo ""
-echo "💡 Update your .env file with the HMAC key:"
+echo "⚠️  DO NOT COMMIT generated certs or keys."
+echo "💡 Update .env with:"
 echo "   HMAC_SECRET_KEY=$HMAC_KEY"
+echo ""
