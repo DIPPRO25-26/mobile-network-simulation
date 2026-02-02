@@ -66,6 +66,7 @@ services:
     volumes:
       - ./security/keys:/app/keys:ro
       - ./security/audit:/app/audit
+      - ./security/certs:/app/certs:ro
 
   # BTS Service 1
   bts-1:
@@ -78,10 +79,13 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 100
       BTS_LOCATION_Y: 100
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
+      CLIENT_CERT: /app/certs/bts-service/tls.crt
+      CLIENT_KEY: /app/certs/bts-service/tls.key
+      CA_CERT: /app/certs/ca/ca.crt
     ports:
       - "8081:8080"
     depends_on:
@@ -91,6 +95,8 @@ services:
         condition: service_healthy
     networks:
       - mobile-network
+    volumes:
+      - ./security/certs:/app/certs:ro
 
   # BTS Service 2
   bts-2:
@@ -103,10 +109,13 @@ services:
       BTS_LAC: "1001"
       BTS_LOCATION_X: 300
       BTS_LOCATION_Y: 100
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
+      CLIENT_CERT: /app/certs/bts-service/tls.crt
+      CLIENT_KEY: /app/certs/bts-service/tls.key
+      CA_CERT: /app/certs/ca/ca.crt
     ports:
       - "8082:8080"
     depends_on:
@@ -116,6 +125,8 @@ services:
         condition: service_healthy
     networks:
       - mobile-network
+    volumes:
+      - ./security/certs:/app/certs:ro
 
   # BTS Service 3
   bts-3:
@@ -128,10 +139,13 @@ services:
       BTS_LAC: "1002"
       BTS_LOCATION_X: 200
       BTS_LOCATION_Y: 300
-      CENTRAL_API_URL: http://central-backend:8080
+      CENTRAL_API_URL: https://central-backend:8080
       REDIS_HOST: redis
       REDIS_PORT: 6379
       HMAC_SECRET_KEY: ${HMAC_SECRET_KEY:-changeme}
+      CLIENT_CERT: /app/certs/bts-service/tls.crt
+      CLIENT_KEY: /app/certs/bts-service/tls.key
+      CA_CERT: /app/certs/ca/ca.crt
     ports:
       - "8083:8080"
     depends_on:
@@ -141,6 +155,8 @@ services:
         condition: service_healthy
     networks:
       - mobile-network
+    volumes:
+      - ./security/certs:/app/certs:ro
 
   # Analytics Service
   # analytics:

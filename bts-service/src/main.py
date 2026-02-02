@@ -38,6 +38,10 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 MCC = os.getenv("MCC", "219")  # Croatia
 MNC = os.getenv("MNC", "01")
 HMAC_SECRET = os.getenv("HMAC_SECRET_KEY", "your_shared_secret_key_here")
+CLIENT_CERT = os.getenv("CLIENT_CERT")
+CLIENT_KEY = os.getenv("CLIENT_KEY")
+CA_CERT = os.getenv("CA_CERT")
+TLS_CONFIG = {"cert": (CLIENT_CERT, CLIENT_KEY), "verify": CA_CERT,}
 BTS_MAX_USER_CAPACITY = int(os.getenv("BTS_MAX_USER_CAPACITY", "100"))
 POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL = int(os.getenv("POLL_FOR_NEIGHBOUR_BTS_INFO_INTERVAL", "5"))
 BTS_NEIGHBOR_RADIUS = int(os.getenv("BTS_NEIGHBOR_RADIUS", "500"))
@@ -170,6 +174,9 @@ async def startup_event():
     # Start user presence checker thread
     user_presence_checker.start_checking()
     logger.info("User Presence Checker started")
+
+    if not all([CLIENT_CERT, CLIENT_KEY, CA_CERT]):
+        raise RuntimeError("mTLS misconfigured: missing CLIENT_CERT / CLIENT_KEY / CA_CERT")
 
 @app.on_event("shutdown")
 def shutdown_event():
@@ -369,7 +376,7 @@ async def send_user_information_to_central_backend(data: dict) -> dict:
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(**TLS_CONFIG) as client:
         try:
             response = await client.post(
                 url,
@@ -408,7 +415,7 @@ async def send_bts_information_to_central_backend(data: dict) -> dict:
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(**TLS_CONFIG) as client:
         response = await client.post(url, content=body_str.encode("utf-8"), headers=headers, timeout=5.0)
 
         if response.status_code == 409:
@@ -443,7 +450,7 @@ async def send_bts_status_to_central_backend(bts_id: str, data: dict) -> dict:
         "Content-Type": "application/json"
     }
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(**TLS_CONFIG) as client:
         response = await client.patch(url, content=body_str.encode("utf-8"), headers=headers, timeout=5.0)
         response.raise_for_status()
         return response.json()
@@ -452,7 +459,7 @@ async def send_bts_status_to_central_backend(bts_id: str, data: dict) -> dict:
 async def get_all_bts_information_from_central_backend() -> dict:
     url = f"{CENTRAL_API_URL}/api/v1/bts"
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(**TLS_CONFIG) as client:
         try:
             response = await client.get(
                 url,
