@@ -45,7 +45,7 @@ async def simulate_actions(imei, num_actions):
             else:
                 should_connect = False
         else:
-            response = await send_keep_alive(final_x, final_y, imei, timestamp)
+            response = await send_keep_alive(timestamp, imei, final_x, final_y)
             inner_response = response.get("response", {})
             data = inner_response.get("data", {})
             if (data.get("action") == "handover"):

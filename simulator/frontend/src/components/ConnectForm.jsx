@@ -9,6 +9,7 @@ export default function ConnectForm({ onLog, mapSelection }) {
     x: "",
     y: "",
     timestamp: getNow(),
+    keepalive: false,
   });
 
   // Listen for map clicks
@@ -27,7 +28,8 @@ export default function ConnectForm({ onLog, mapSelection }) {
   const [status, setStatus] = useState(null);
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+    setForm((prev) => ({ ...prev, [e.target.name]: value }));
   };
 
   const handleSetNow = () => {
@@ -92,19 +94,28 @@ export default function ConnectForm({ onLog, mapSelection }) {
       </div>
 
       {/* Row 2: Timestamp + Buttons */}
-      <div className="form-row">
-        <div style={{ display: "flex", gap: "0.5rem", flex: 1 }}>
+      <div className="form-row align-center">
+        <div className="input-group">
           <input
             name="timestamp"
             placeholder="Timestamp"
             value={form.timestamp}
             onChange={handleChange}
-            style={{ flex: 1 }}
           />
           <button type="button" onClick={handleSetNow} title="Set to current time">
             Now
           </button>
         </div>
+
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            name="keepalive"
+            checked={form.keepalive}
+            onChange={handleChange}
+          />
+          <span>Keepalive</span>
+        </label>
 
         <button type="submit" disabled={loading}>
           {loading ? "Sending..." : "Send"}
