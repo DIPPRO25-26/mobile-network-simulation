@@ -102,9 +102,11 @@ async def send_keep_alive(timestamp, imei, x, y):
         return {"error": "No BTS found", "detail": "No BTS found (at all)"}
     last = last_bts.get(imei)
 
-    if last is None or last not in bts_map:
+    if last not in bts_map:
         last = closest_bts(x, y, bts_map)
         last_bts[imei] = last
+    if last is None:
+        return {"error": "No BTS found", "detail": "No BTS found (in signal range)"}
     print(f"Sending keep alive to BTS: {last}", file=sys.stderr)
 
     timestamp = timestamp.strftime("%Y-%m-%d %H:%M:%S")
