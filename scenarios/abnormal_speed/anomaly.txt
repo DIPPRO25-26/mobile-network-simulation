@@ -1,0 +1,8 @@
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477457))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477537))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477553))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477566))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477576))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477584))
+DEBUG:__main__:alert generated: ('abnormal speed', 'low', '351473913714410', 'bts-1', 'Speed above 200km/h', datetime.datetime(2026, 2, 13, 2, 18, 46, 477592))
+INFO:__main__:Alerts table updated

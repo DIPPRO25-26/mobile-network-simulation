@@ -1,0 +1,2 @@
+DEBUG:__main__:alert generated: ('flapping', 'medium', '332145354966824', 'bts-1', 'Flapping between bts-1 and bts-2 7 times', datetime.datetime(2026, 2, 13, 1, 39, 31, 445911))
+INFO:__main__:Alerts table updated

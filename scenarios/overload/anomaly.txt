@@ -1,0 +1,2 @@
+nije zapravo detected?
+ne mogu naci gdje se current_load postavlja za neki bts
