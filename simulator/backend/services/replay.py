@@ -1,7 +1,8 @@
-from comms.api import connect, send_keep_alive
+from comms.api import connect, send_keep_alive, clear
 import asyncio
 
 async def replay(events):
+    await clear()
     last_ts = events[0][0]
     should_connect = True
     for timestamp, imei, x, y in events:

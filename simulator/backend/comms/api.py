@@ -46,6 +46,10 @@ def get_bts_map():
 
 last_bts = dict()
 
+# wipe state
+async def clear():
+    last_bts = dict()
+
 # switched to go-inspired errors
 # not a fan, but exception handling isnt the best with async generators
 async def connect(timestamp, imei, x, y):
