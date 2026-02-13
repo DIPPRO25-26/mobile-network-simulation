@@ -9,11 +9,14 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "15"))
+DB_HOST = os.getenv("DB_HOST", "admin")
+DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_USER = os.getenv("DB_USER", "admin")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "admin123")
 
 flapping_query = """
-SELECT * FROM cdr_records WHERE timestamp_arrival >= '%s';
+SELECT * FROM cdr_records WHERE timestamp_arrival >= %s 
+ORDER BY imei, timestamp_arrival ASC; 
 """
 speed_query = """
 SELECT * FROM cdr_records WHERE created_at >= '%s' AND speed > 200;
@@ -48,53 +51,59 @@ def clear_old_flapping_alerts(recent_flapping):
 
 # flapping: korisnik se prebacuje izmedju 2 BTS-a >5 puta/h
 def check_flapping(cursor, flapping_query, column_names, recent_flapping):
-    data = fetch_data(cursor, flapping_query, datetime.datetime.now() - datetime.timedelta(hours=1))
-    # grupiraj entryje po imei-ma
+    idx_imei = column_names.index('imei')
+    idx_bts = column_names.index('bts_id')
+    idx_prev_bts = column_names.index('previous_bts_id') 
+
+    cursor.execute(flapping_query, (datetime.datetime.now() - datetime.timedelta(hours=1),))
+    data = cursor.fetchall()
+
     imei_grouped_entries = {}
+    
     for row in data:
-        imei = row[column_names.index('imei')]
-        bts_id = row[column_names.index('bts_id')]
-        previous_bts_id = row[column_names.index('previous_bts_id')]
-        if imei in imei_grouped_entries.keys():
-            imei_grouped_entries[imei].append((previous_bts_id, bts_id))
-        else:
-            imei_grouped_entries[imei] = [(previous_bts_id, bts_id)]
+        imei = row[idx_imei]
+        bts_id = row[idx_bts]
+        previous_bts_id = row[idx_prev_bts]
+        if bts_id == previous_bts_id:
+            continue
+        if imei not in imei_grouped_entries:
+            imei_grouped_entries[imei] = []
+        imei_grouped_entries[imei].append((previous_bts_id, bts_id))
     
     new_flapping = []
-    for imei in imei_grouped_entries:
-        bts_pairs = imei_grouped_entries[imei] # bts_pairs je lista 2-tupleova
-        num_transitions = len(bts_pairs)
-        if num_transitions <= 5: # preskacem IMEI-e koji imaju manje od 5 prijelaza uopce
+    
+    for imei, transitions in imei_grouped_entries.items():
+        if len(transitions) <= 5:
             continue
-        bts_chains_list = [None] * num_transitions # bit ce lista listi
+            
+        current_chain = []
         
-        for i in range(0, num_transitions):
-            bts_a, bts_b = bts_pairs[i]
-            bts_chains_list[i] = [bts_a, bts_b]
-            for j in range(i+1, num_transitions):
-                previous_bts, current_bts = bts_pairs[j]
-                if previous_bts == bts_b and current_bts == bts_a:
-                    bts_chains_list[i].append(current_bts)
-                    bts_a, bts_b = previous_bts, current_bts
-                else:
-                    break
-        
-        # za pronadjene lance duljine >6 zabiljezi flapping [broj prijelaza = duljina lanca - 1]
-        prev_chain_longer = 0
-        for chain in bts_chains_list:
-            if len(chain) > 6: 
-                if not prev_chain_longer:
-                    flap = (imei, chain)
-                    new_flapping.append(flap)
-                prev_chain_longer = 1
+        for i in range(len(transitions)):
+            curr_prev, curr_curr = transitions[i]
+            
+            if not current_chain:
+                current_chain.append(curr_prev)
+                current_chain.append(curr_curr)
+                continue
+                
+            last_bts = current_chain[-1]
+            second_to_last = current_chain[-2]
+            
+            if curr_prev == last_bts and curr_curr == second_to_last:
+                current_chain.append(curr_curr)
             else:
-                prev_chain_longer = 0
+                if len(current_chain) > 6:
+                    new_flapping.append((imei, tuple(current_chain)))
+                current_chain = [curr_prev, curr_curr]
+
+        if len(current_chain) > 6:
+            new_flapping.append((imei, tuple(current_chain)))
 
     alerts = []
-    recent_flapping_info = [x["info"] for x in recent_flapping]
+    recent_flapping_info = {x["info"] for x in recent_flapping}
     for flap in new_flapping:
+        imei, chain = flap
         if flap not in recent_flapping_info:
-            imei, chain = flap
             alert = generate_alert(
                 'flapping', 'medium',
                 imei, chain[0],
@@ -149,15 +158,16 @@ def main():
         "dbname": "mobile_network",
         "user": DB_USER,
         "password": DB_PASSWORD,
-        "host": "localhost",
-        "port": 5432
+        "host": DB_HOST,
+        "port": DB_PORT
     }
     recent_flapping = []
+    conn = None
     while True:
         try:
+            if conn is None or conn.closed:
+                conn, cur = open_db_connection(connection_params)
             starttime = time.monotonic()
-            conn, cur = open_db_connection(connection_params)
-
             cdr_records_col_names = fetch_column_names(cur, col_names_query, 'cdr_records')
             bts_registry_col_names = fetch_column_names(cur, col_names_query, 'bts_registry')
             
@@ -172,13 +182,15 @@ def main():
                 conn.commit()
                 logger.info('Alerts table updated')
             
-            cur.close()        
-            close_db_connection(conn)  
-            time.sleep(POLL_INTERVAL - (time.monotonic() - starttime))
-        except (Exception, psycopg2.DatabaseError) as error:
-            print(error)
-            close_db_connection(conn) 
-            sys.exit(0) 
+            elapsed = time.monotonic() - starttime
+            time.sleep(POLL_INTERVAL - elapsed)
+        except (psycopg2.OperationalError, psycopg2.InterfaceError) as error:
+            logger.error(f"DB Connection lost: {error}")
+            close_db_connection(conn)
+            time.sleep(5)
+        except Exception as error:
+            logger.exception("Unexpected error")
+            time.sleep(5)
 
 if __name__ == '__main__':
     main()
